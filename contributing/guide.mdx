@@ -1,5 +1,5 @@
 ---
-title: "Contributing to Betterflow"
+title: "Betterflow Contributor Guide: Setup and Code Style"
 sidebarTitle: "Guide"
 description: "Everything you need to set up your local environment, follow coding standards, tackle common tasks, and submit high-quality pull requests to Betterflow."
 ---
@@ -258,14 +258,13 @@ The sections below walk through the most frequent contribution patterns with con
 
   | File | Responsibility |
   |---|---|
-  | `export-service.ts` | Image export — composites background, Konva stage, and overlays |
-  | `export-slideshow-video.ts` | Video export orchestrator — iterates frames and calls encoders |
+  | `export-service.ts` | Image export — composites background, HTML canvas layers, and overlays |
   | `ffmpeg-encoder.ts` | FFmpeg WASM encoder for H.264 and GIF |
   | `webcodecs-encoder.ts` | Hardware-accelerated H.264 via WebCodecs API + mp4-muxer |
   | `video-encoder.ts` | MediaRecorder wrapper for native WebM |
   | `export-utils.ts` | Shared helpers (noise texture, OKLCH conversion, etc.) |
 
-  To modify image quality or add a new export format, start in `export-service.ts`. To change video encoder behaviour or add a new encoder, edit the relevant encoder file and update the selection logic in `export-slideshow-video.ts`.
+  The video export orchestrator lives at `lib/export-slideshow-video.ts`. To modify image quality or add a new export format, start in `export-service.ts`. To change video encoder behaviour or add a new encoder, edit the relevant encoder file and update the selection logic in `lib/export-slideshow-video.ts`.
 </Accordion>
 
 ## Submitting Changes

@@ -16,7 +16,7 @@ This endpoint powers the **"Import from URL"** feature in the Betterflow editor,
 | **Path** | `/api/screenshot` |
 | **Content-Type** | `application/json` |
 
-The route has a `maxDuration` of **60 seconds** (configured in `vercel.json`) to accommodate slow websites and Playwright startup time on cold starts. Memory is set to 1024 MB.
+The route has a `maxDuration` of **60 seconds** (set via `export const maxDuration = 60` in the route module itself) to accommodate slow websites and Playwright startup time on cold starts. Memory is set to **1024 MB** in `vercel.json`.
 
 ## Request Body
 

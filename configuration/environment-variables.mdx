@@ -1,7 +1,7 @@
 ---
-title: "Betterflow Environment Variable Reference"
+title: "Betterflow Environment Variables Complete Reference"
 sidebarTitle: "Env Variables"
-description: "A complete reference for every environment variable used by Betterflow, covering site config, Cloudflare R2 storage, analytics, and optional social links."
+description: "Complete reference for every environment variable used by Betterflow, covering site config, Cloudflare R2, Firebase, analytics, and internal secrets."
 ---
 
 Betterflow is configured entirely through environment variables loaded at build and runtime. Copy the
@@ -30,33 +30,59 @@ NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 
 ---
 
+## Firebase
+
+Betterflow includes Firebase configuration for authentication and other Firebase services.
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | ✅ Yes (for Firebase) | Firebase project API key, found in your Firebase project settings under **General → Your apps**. |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | ✅ Yes (for Firebase) | Firebase authentication domain (e.g. `your-project.firebaseapp.com`). |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | ✅ Yes (for Firebase) | Firebase project ID (e.g. `your-project-id`). |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | ✅ Yes (for Firebase) | Firebase Storage bucket URL (e.g. `your-project.appspot.com`). |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | ✅ Yes (for Firebase) | Firebase Cloud Messaging sender ID, found in your Firebase project settings. |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | ✅ Yes (for Firebase) | Firebase app ID for your web app, found in your Firebase project settings. |
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+---
+
 ## Cloudflare R2 Storage
 
 R2 storage powers two key features: **background image assets** served to the editor and
-**Chrome extension video uploads** that land directly in R2 via presigned URLs. All eight variables
+**Chrome extension video uploads** that land directly in R2 via presigned URLs. All R2 variables
 below should be treated as a group — the application will fall back gracefully when they are absent,
 but background images and extension uploads will be unavailable.
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_R2_PUBLIC_URL` | ✅ Yes (for R2) | Public HTTPS endpoint of your R2 bucket (e.g. `https://pub-xxxx.r2.dev`). Used by `next.config.ts` as an allowed image hostname and in client-side asset URLs. |
-| `NEXT_PUBLIC_R2_CUSTOM_DOMAIN` | ✅ Yes (for R2) | Custom domain mapped to your R2 bucket (e.g. `assets.yourdomain.com`). Added as an allowed remote pattern for Next.js Image Optimization. |
-| `NEXT_PUBLIC_CDN_URL` | ✅ Yes (for R2) | CDN or custom domain base URL used when constructing public file URLs after upload (e.g. `https://cdn.yourdomain.com`). |
+| `CLOUDFLARE_ACCOUNT_ID` | ✅ Yes (for R2) | Your Cloudflare account ID, found in the Cloudflare dashboard sidebar. Required for constructing the R2 S3-compatible endpoint URL. |
+| `R2_ACCOUNT_ID` | ✅ Yes (for R2) | R2-specific account ID used in R2 API calls. Often the same value as `CLOUDFLARE_ACCOUNT_ID`. |
 | `R2_ACCESS_KEY_ID` | ✅ Yes (for R2) | R2 API access key ID. Generated in the Cloudflare dashboard under **R2 → Manage API tokens**. |
 | `R2_SECRET_ACCESS_KEY` | ✅ Yes (for R2) | R2 API secret access key paired with `R2_ACCESS_KEY_ID`. Never expose this in client-side code. |
 | `R2_BUCKET_NAME` | ✅ Yes (for R2) | Name of the R2 bucket (e.g. `betterflow-storage`). Passed directly to S3-compatible API calls. |
-| `CLOUDFLARE_ACCOUNT_ID` | ✅ Yes (for R2) | Your Cloudflare account ID, found in the Cloudflare dashboard sidebar. Required for constructing the R2 S3-compatible endpoint URL. |
 | `R2_API_TOKEN` | ✅ Yes (for R2) | Scoped Cloudflare API token with R2 read/write permissions. Used for management API calls distinct from the S3-compatible access key pair. |
+| `NEXT_PUBLIC_R2_PUBLIC_URL` | ✅ Yes (for R2) | Public HTTPS endpoint of your R2 bucket (e.g. `https://pub-xxxx.r2.dev`). Used by `next.config.ts` as an allowed image hostname and in client-side asset URLs. |
+| `NEXT_PUBLIC_R2_CUSTOM_DOMAIN` | ✅ Yes (for R2) | Custom domain mapped to your R2 bucket (e.g. `assets.yourdomain.com`). Added as an allowed remote pattern for Next.js Image Optimization. |
+| `NEXT_PUBLIC_CDN_URL` | ✅ Yes (for R2) | CDN or custom domain base URL used when constructing public file URLs after upload (e.g. `https://cdn.yourdomain.com`). |
 
 ```env
-NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev
-NEXT_PUBLIC_R2_CUSTOM_DOMAIN=assets.yourdomain.com
-NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+R2_ACCOUNT_ID=your_r2_account_id
 R2_ACCESS_KEY_ID=your_r2_access_key_id
 R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
 R2_BUCKET_NAME=betterflow-storage
-CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
 R2_API_TOKEN=your_r2_api_token
+NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev
+NEXT_PUBLIC_R2_CUSTOM_DOMAIN=assets.yourdomain.com
+NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com
 ```
 
 <Note>
@@ -64,22 +90,6 @@ R2_API_TOKEN=your_r2_api_token
   export — all work without R2 configured. R2 is only required if you want the built-in background
   image gallery or Chrome extension video uploads to function.
 </Note>
-
----
-
-## Cloudflare D1 Database
-
-Betterflow includes a Drizzle ORM layer targeting Cloudflare D1 (SQLite). The database integration
-is present in the codebase but not actively used by default, so this variable is optional for most
-deployments.
-
-| Variable | Required | Description |
-|---|---|---|
-| `CLOUDFLARE_D1_DATABASE_ID` | ⬜ Optional | UUID of your Cloudflare D1 database instance. Only needed if you extend Betterflow with server-side data persistence using the included Drizzle schema. |
-
-```env
-CLOUDFLARE_D1_DATABASE_ID=your_d1_database_id
-```
 
 ---
 
@@ -101,17 +111,24 @@ NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 
 ---
 
-## Social Links
-
-These values are consumed by SEO metadata components and the GitHub star button on the landing
-page. Omitting them simply hides those UI elements.
+## SEO
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_GITHUB_URL` | ⬜ Optional | Full URL to the GitHub repository (e.g. `https://github.com/konlyzx/betterflow`). |
-| `NEXT_PUBLIC_TWITTER_URL` | ⬜ Optional | Full URL to the Twitter/X profile (e.g. `https://twitter.com/konlyzx_`). |
+| `GOOGLE_SITE_VERIFICATION` | ⬜ Optional | Google Search Console site verification token. Added as a `<meta>` tag in the page `<head>`. |
 
 ```env
-NEXT_PUBLIC_GITHUB_URL=https://github.com/konlyzx/betterflow
-NEXT_PUBLIC_TWITTER_URL=https://twitter.com/konlyzx_
+GOOGLE_SITE_VERIFICATION=your_google_site_verification_code
+```
+
+---
+
+## Internal
+
+| Variable | Required | Description |
+|---|---|---|
+| `CLEANUP_SECRET` | ⬜ Optional | Secret token used to authenticate requests to the `/api/cleanup-cache` route. Set this to a random string to prevent unauthorized cache clearing. |
+
+```env
+CLEANUP_SECRET=your_random_secret_string
 ```

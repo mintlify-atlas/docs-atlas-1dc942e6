@@ -1,14 +1,14 @@
 ---
-title: "Configuring Cloudflare R2 Storage for Betterflow"
+title: "Betterflow Storage: Cloudflare R2 and Browser Storage"
 sidebarTitle: "Storage"
-description: "Learn how Betterflow uses Cloudflare R2 for remote asset storage and browser localStorage for canvas state, exports, and preferences."
+description: "Learn how Betterflow uses Cloudflare R2 for remote asset storage and browser-side IndexedDB and LocalStorage for canvas state, exports, and preferences."
 ---
 
 Betterflow uses two complementary storage layers that work independently of each other. **Cloudflare
 R2** is a remote object store for assets that need to be served publicly — background images and
-videos recorded by the Chrome extension. **Browser localStorage** (used alongside blob URLs) handles
-all user-uploaded images, export preferences, and canvas state, so the editor stays fully functional
-even without an R2 bucket configured.
+videos recorded by the Chrome extension. **Browser storage** (IndexedDB and LocalStorage) handles
+all user-uploaded images, export history, export preferences, and canvas state, so the editor stays
+fully functional even without an R2 bucket configured.
 
 ---
 
@@ -114,40 +114,38 @@ R2 is Cloudflare's S3-compatible object storage. Betterflow uses it for two spec
 
 ---
 
-## Browser localStorage
+## Browser Storage
 
-Betterflow stores **uploaded image blobs** and **canvas state** in the browser using
-`localStorage`. This requires no setup and works automatically across sessions.
+Betterflow uses two browser-native storage mechanisms — **IndexedDB** for binary blobs and
+structured records, and **LocalStorage** for lightweight key/value state. Both require no
+configuration and work automatically across sessions.
 
-### Image Blobs (`betterflow-img-*`)
+### IndexedDB Stores
 
-When a user uploads an image, Betterflow creates a temporary blob URL for immediate rendering and
-attempts to persist a base64-encoded copy to `localStorage` under the key prefix `betterflow-img-`.
-Images larger than **500 KB** are not persisted to avoid exceeding the storage quota — their blob
-URLs remain available for the current session only.
+IndexedDB is used for all data that is too large or too structured for LocalStorage: uploaded
+image blobs, exported image files, and export preferences.
 
-On subsequent visits the stored base64 data is decoded back into a blob URL, so smaller images
-survive page refreshes without re-uploading.
+| Store | Key | Contents |
+|---|---|---|
+| `image-blobs` | Unique image ID | Uploaded image blob, MIME type, and timestamp. A blob URL is created from this record for immediate canvas rendering and persisted here so images survive page refreshes. |
+| `exports` | Unique export ID | Exported image blob together with format, quality, scale, timestamp, and file name metadata. |
+| `export-preferences` | `'preferences'` | Last-used export settings: format (`PNG` / `MP4` / `WebM` / `GIF`), quality preset, and output scale. Restored when the export panel opens. |
 
-### Canvas State and Preferences
+### LocalStorage Keys
 
-Two additional `localStorage` keys capture editor state:
+LocalStorage holds lightweight editor state that is fast to read synchronously on startup.
 
 | Key | Contents |
 |---|---|
 | `canvas-objects` | Serialized canvas object state (image transforms, overlays, borders, shadows, 3D perspective settings). Restored automatically when the editor loads. |
 | `canvas-background-prefs` | Background preferences (gradient colors, solid color, background image selection, blur and noise settings). |
 
-| Key | Contents |
-|---|---|
-| `betterflow-export-preferences` | Last-used export settings: format (`PNG` / `MP4` / `WebM` / `GIF`), quality preset, and output scale. Restored when the export panel opens. |
-
-No configuration is required — all `localStorage` reads and writes happen automatically in the
-browser. Data persists across sessions and survives page refreshes as long as the browser's storage
-is not cleared.
+No configuration is required — all IndexedDB and LocalStorage reads and writes happen automatically
+in the browser. Data persists across sessions and survives page refreshes as long as the browser's
+storage is not cleared.
 
 <Note>
-  `localStorage` is scoped to the browser origin, so data stored at `localhost:3000` is separate
-  from data at your production domain. Users who clear their browser storage or use a different
+  Browser storage is scoped to the origin, so data stored at `localhost:3000` is separate from
+  data at your production domain. Users who clear their browser storage or switch to a different
   device will start with a blank canvas.
 </Note>

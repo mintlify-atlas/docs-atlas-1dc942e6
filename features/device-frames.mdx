@@ -1,10 +1,10 @@
 ---
-title: "Device Frames: Browser Mockups, Polaroids & Glass"
+title: "Device Frames: Browser Mockups & Stylized Borders"
 sidebarTitle: "Device Frames"
-description: "Wrap screenshots in Safari, Chrome, Arc browser mockups or stylized frames like Polaroid, glass, and outline — with full shadow and border customization."
+description: "Wrap screenshots in Safari, Chrome, or Arc browser mockups, or apply stylized frames like glass, outline, and photograph — with shadow customization."
 ---
 
-Framing a screenshot in a recognizable browser chrome or a styled border instantly elevates its perceived quality. Betterflow offers a complete set of device frames — from pixel-perfect browser mockups with live URL bars to artistic options like Polaroid prints, glass panels, and clean outlines — all configurable through the right-side control panel.
+Framing a screenshot in a recognizable browser chrome or a styled border instantly elevates its perceived quality. Betterflow offers a complete set of device frames — from pixel-perfect browser mockups with live URL bars to artistic options like Arc frames, photograph borders, and clean outlines — all configurable through the right-side control panel.
 
 ## Browser Mockups
 
@@ -39,27 +39,29 @@ Beyond browser mockups, Betterflow includes several flat frame styles that wrap 
 
 | Style | Description |
 |-------|-------------|
-| **Polaroid** | Classic white Polaroid border with a wider bottom margin — perfect for travel and lifestyle photography |
-| **Glass** | Semi-transparent frosted-glass panel with a subtle border and backdrop blur |
-| **Outline** | Minimal single-pixel border that adds structure without obscuring content |
-| **Border** | Solid border with configurable width, color, and corner radius |
+| **Arc Light / Dark** | Arc browser-inspired frame with a clean rounded border — available in light and dark variants |
+| **macOS Light / Dark** | macOS window chrome with traffic-light controls — mirrors the Safari mockup aesthetic |
+| **Windows Light / Dark** | Windows-style title bar with minimize/maximize/close controls |
+| **Photograph** | Classic photo border with a wider bottom margin — perfect for travel and lifestyle photography |
+
+Additionally, the **Style** panel offers overlay-style presets — **Glass Light**, **Glass Dark**, **Outline**, **Border**, and **Border Dark** — that apply a semi-transparent wrapper around the image.
 
 ## Border Controls
 
-The `BorderControls` component exposes fine-grained control over the border around your screenshot:
+The `BorderControls` component exposes fine-grained control over the frame around your screenshot:
 
 <Steps>
-  <Step title="Border Style">
-    Choose from multiple named styles: **glassy**, **window**, **ruler**, and more. Each style applies a distinct visual treatment — from a translucent glass edge to a measurement-ruler aesthetic.
+  <Step title="Frame Style">
+    Choose from **Arc Light**, **Arc Dark**, **macOS Light**, **macOS Dark**, **Windows Light**, **Windows Dark**, or **Photograph**. Each applies a distinct visual treatment matching the named operating system or aesthetic.
   </Step>
-  <Step title="Border Width">
-    A numeric slider controls the border thickness in pixels. Works independently of the border radius so you can combine thick borders with rounded corners.
+  <Step title="Frame Size">
+    A numeric slider controls the frame thickness in pixels. Only available for Arc-style frames.
   </Step>
-  <Step title="Border Color">
-    Pick any color using the color picker or paste a hex value. The glassy style uses semi-transparent whites/grays that adapt to the background.
+  <Step title="Opacity">
+    The frame opacity slider adjusts the transparency of the frame overlay. Defaults to 50% for Arc Light and 70% for other frame types.
   </Step>
-  <Step title="Border Radius">
-    Rounded corners are controlled separately from the border style. The radius applies to both the image container and the border — they always match for a cohesive look.
+  <Step title="Title / Caption">
+    macOS, Windows, and Photograph frames support a custom title or caption string rendered inside the frame's title bar area.
   </Step>
 </Steps>
 
@@ -83,7 +85,7 @@ Every frame and border can have an independent drop shadow. The `ShadowControls`
 </CardGroup>
 
 <Note>
-  Shadow configuration is stored separately from the frame style, so you can apply the same custom shadow to any frame type — including browser mockups, Polaroids, and plain borders alike.
+  Shadow configuration is stored separately from the frame style, so you can apply the same custom shadow to any frame type — including browser mockups, photograph frames, and plain borders alike.
 </Note>
 
 <Tip>

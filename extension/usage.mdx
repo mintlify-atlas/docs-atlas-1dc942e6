@@ -1,7 +1,7 @@
 ---
-title: "Using the Betterflow Chrome Extension"
+title: "Installing and Using the Betterflow Chrome Extension"
 sidebarTitle: "Usage"
-description: "Step-by-step guide to installing the Betterflow Chrome Extension and recording your screen for use in the editor."
+description: "Learn how to install the Betterflow Chrome Extension, set up Cloudflare R2 storage, capture your screen, and send recordings to the editor."
 ---
 
 The Betterflow Chrome Extension bridges your browser tabs and the Betterflow editor in a single click. This page walks you through installing the extension, making sure your instance is ready to receive uploads, and recording your first clip. A troubleshooting section at the bottom covers the most common issues you may encounter.
@@ -10,7 +10,7 @@ The Betterflow Chrome Extension bridges your browser tabs and the Betterflow edi
 
 <Steps>
   <Step title="Install the Chrome Extension">
-    Open the [Better Flow extension page](https://chrome.google.com/webstore) on the Chrome Web Store and click **Add to Chrome**. Confirm the permissions prompt to complete installation.
+    Open the Chrome Web Store, search for **Better Flow**, and click **Add to Chrome**. Confirm the permissions prompt to complete installation.
   </Step>
 
   <Step title="Configure R2 Storage on Your Betterflow Instance">
@@ -70,8 +70,7 @@ The extension relies on two API routes. Refer to their reference pages for reque
   2. Verify the extension is pointed at the correct Betterflow origin.
   3. Open your browser's DevTools **Network** tab, trigger a recording, and inspect the response from `/api/upload-video` for a specific error message.
 
-  ```bash
-  # Quick check — expected response on success
+  ```json
   { "success": true, "fileUrl": "https://your-cdn-domain/backgrounds/videos/..." }
   ```
 </Accordion>

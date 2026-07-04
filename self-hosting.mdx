@@ -1,5 +1,5 @@
 ---
-title: "Self-Hosting Betterflow on Vercel or Docker"
+title: "Self-Hosting Betterflow: Deploy on Vercel or Docker"
 sidebarTitle: "Self-Hosting"
 description: "Deploy your own Betterflow instance to Vercel or a Docker container, configure environment variables, and go live with a private installation."
 ---
@@ -47,6 +47,10 @@ Vercel is the recommended deployment target for Betterflow. Because the project 
 
 Betterflow supports containerised deployment for teams that need on-premise hosting, custom infrastructure, or full control over the runtime environment.
 
+<Warning>
+  The repository does not currently include a `Dockerfile`. Before running the commands below, you must add your own `Dockerfile` to the repository root. The example commands assume a standard multi-stage Node.js image that builds with `pnpm run build` and starts with `pnpm start`.
+</Warning>
+
 Build the Docker image from the repository root:
 
 ```bash
@@ -84,6 +88,12 @@ The table below covers every variable from `.env.example`. Copy `.env.example` t
 | Variable | Required | Description |
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | **Required** | The canonical public URL of your deployment, e.g. `https://your-domain.com`. Used in SEO metadata. |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Optional | Firebase project API key. |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Optional | Firebase Auth domain. |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Optional | Firebase project ID. |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional | Firebase Storage bucket. |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Optional | Firebase messaging sender ID. |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Optional | Firebase app ID. |
 | `CLOUDFLARE_ACCOUNT_ID` | Required for backgrounds | Your Cloudflare account ID. |
 | `R2_ACCOUNT_ID` | Required for backgrounds | Your R2-specific account ID. |
 | `R2_ACCESS_KEY_ID` | Required for backgrounds | Access key for the R2 API. |
@@ -93,12 +103,6 @@ The table below covers every variable from `.env.example`. Copy `.env.example` t
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Required for backgrounds | Public base URL of your R2 bucket, e.g. `https://pub-xxxx.r2.dev`. |
 | `NEXT_PUBLIC_R2_CUSTOM_DOMAIN` | Optional | Custom domain placed in front of R2 for asset serving. |
 | `NEXT_PUBLIC_CDN_URL` | Optional | CDN base URL for serving R2 assets through a caching layer. |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Optional | Firebase project API key. |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Optional | Firebase Auth domain. |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Optional | Firebase project ID. |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional | Firebase Storage bucket. |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Optional | Firebase messaging sender ID. |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Optional | Firebase app ID. |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog analytics API key for usage tracking. |
 | `NEXT_PUBLIC_POSTHOG_HOST` | Optional | PostHog ingest host. Defaults to `https://us.i.posthog.com`. |
 | `GOOGLE_SITE_VERIFICATION` | Optional | Google Search Console meta-tag verification token. |

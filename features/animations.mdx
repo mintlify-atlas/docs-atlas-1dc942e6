@@ -1,7 +1,7 @@
 ---
-title: "Animations: Keyframe Timeline with 35+ Motion Presets"
+title: "Animations: Keyframe Timeline with 30+ Motion Presets"
 sidebarTitle: "Animations"
-description: "Animate screenshots with a professional keyframe timeline, 35+ motion presets across 8 categories, 8 easing functions, and multi-slide looping support."
+description: "Animate screenshots with a professional keyframe timeline, 30+ motion presets across 8 categories, 8 easing functions, and multi-slide looping support."
 ---
 
 Betterflow's animation system transforms static screenshots into polished motion graphics. A built-in keyframe timeline lets you scrub through time, apply preset animations from a gallery, and preview playback in real time — all before exporting to MP4, WebM, or GIF. The engine follows Emil Kowalski's animation principles: snappy entrances, ease-out defaults, and minimum scale values that prevent jarring scale-from-zero effects.
@@ -15,7 +15,7 @@ The animation system is built on three layers:
     `lib/animation/interpolation.ts` handles keyframe lookup, easing application, and linear interpolation (`lerp`) between numeric property values.
   </Card>
   <Card title="Preset Library" icon="layer-group">
-    `lib/animation/presets.ts` defines 35+ named presets as arrays of `AnimationTrack` objects, each containing timed `Keyframe` entries.
+    `lib/animation/presets.ts` defines 30+ named presets as arrays of `AnimationTrack` objects, each containing timed `Keyframe` entries.
   </Card>
   <Card title="Timeline UI" icon="timeline">
     `components/timeline/` provides the visual editor: ruler, playhead, track rows, keyframe markers, playback controls, and the preset gallery.
@@ -119,7 +119,7 @@ export const easingFunctions: Record<EasingFunction, (t: number) => number> = {
 
 ## Preset Gallery
 
-35+ presets are organized into 8 categories. Apply any preset from the `AnimationPresetGallery` component — it clones the preset's tracks with fresh IDs and places them on the timeline.
+33 presets are organized into 8 categories. Apply any preset from the `AnimationPresetGallery` component — it clones the preset's tracks with fresh IDs and places them on the timeline.
 
 <Tabs>
   <Tab title="Reveal">

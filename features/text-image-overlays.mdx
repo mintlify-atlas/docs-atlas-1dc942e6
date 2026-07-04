@@ -1,7 +1,7 @@
 ---
 title: "Text & Image Overlays: Layer Content on Any Screenshot"
 sidebarTitle: "Overlays"
-description: "Add unlimited text overlays with custom fonts and shadows, layer decorative images, import tweets as styled cards, and embed syntax-highlighted code snippets."
+description: "Add unlimited text overlays with custom fonts and shadows, layer decorative images, import tweets as cards, and embed syntax-highlighted code snippets."
 ---
 
 Overlays turn a raw screenshot into a polished marketing asset. Betterflow supports two independent overlay systems — text and image — each of which can be freely positioned, resized, styled, and reordered. Overlays are composited on top of both the background and the main image during export, so they always appear in the correct z-order regardless of the export scale.
@@ -107,16 +107,14 @@ Share code in style with the built-in code snippet tool:
 
 ## Overlay Compositing During Export
 
-During export, overlays are captured in a dedicated pass and composited as the topmost layer:
+Betterflow renders everything — background, image, text overlays, image overlays, borders, and shadows — using pure HTML/CSS inside a single container element. During export the entire container is captured in one pass using `domToCanvas` from `modern-screenshot`:
 
 ```
 Export Pipeline
-  1. Background layer    ← domToCanvas (CSS background, blur, noise)
-  2. User image layer    ← Konva stage export
-  3. Overlay layer       ← domToCanvas (text + image overlays)
-  4. Composite all layers on a single canvas
-  5. Process through Sharp (quality, format)
-  6. Download + save to IndexedDB
+  1. Full canvas capture  ← domToCanvas captures background + image + overlays in one pass
+  2. Blur region pass     ← CSS backdrop-filter applied manually via Canvas 2D filter API
+  3. Sharp processing     ← format compression (PNG / JPEG / WebP)
+  4. Download + IndexedDB ← final blob saved locally with metadata
 ```
 
-The overlay capture creates a temporary DOM container, renders all active text overlays (including font loading) and image overlays into it, then captures the result with `domToCanvas`. This approach ensures font rendering, text shadows, blend modes, and rotation are all faithfully reproduced — including features that the Konva canvas engine doesn't natively support.
+Because overlays are rendered as HTML elements (not drawn onto a Konva canvas), features like custom fonts, text shadows, CSS blend modes, rotation, and percentage positioning are all faithfully reproduced at any export scale without additional compositing steps.

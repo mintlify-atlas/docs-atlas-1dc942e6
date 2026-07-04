@@ -1,5 +1,5 @@
 ---
-title: "Get Started with Betterflow in 5 Minutes"
+title: "Quickstart: Run Betterflow Locally in Under 5 Minutes"
 sidebarTitle: "Quickstart"
 description: "Clone the Betterflow repo, install dependencies with pnpm, configure your environment, and have a local dev server running in minutes."
 ---
@@ -76,6 +76,12 @@ The `.env.example` file documents every available variable. Here is a summary of
 | Variable | Required for local dev? | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | Optional | Sets the canonical site URL; defaults to `http://localhost:3000` |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Optional | Firebase project API key |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Optional | Firebase Auth domain |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Optional | Firebase project ID |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional | Firebase Storage bucket |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Optional | Firebase messaging sender ID |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Optional | Firebase app ID |
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Optional | Public URL for your Cloudflare R2 bucket (needed for hosted background images) |
 | `NEXT_PUBLIC_R2_CUSTOM_DOMAIN` | Optional | Custom domain in front of R2 |
 | `NEXT_PUBLIC_CDN_URL` | Optional | CDN URL for serving R2 assets |

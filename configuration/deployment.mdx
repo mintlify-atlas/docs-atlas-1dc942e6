@@ -1,5 +1,5 @@
 ---
-title: "Deploying Betterflow to Vercel or Docker"
+title: "Deploying Betterflow to Vercel or Docker Containers"
 sidebarTitle: "Deployment"
 description: "Step-by-step instructions for deploying Betterflow to Vercel (recommended) or Docker, including build settings and a production readiness checklist."
 ---
@@ -61,18 +61,19 @@ what ships in the repository.
     If you have R2 configured, add the full set:
 
     ```env
-    NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev
-    NEXT_PUBLIC_R2_CUSTOM_DOMAIN=assets.yourdomain.com
-    NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com
+    CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+    R2_ACCOUNT_ID=your_r2_account_id
     R2_ACCESS_KEY_ID=your_r2_access_key_id
     R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
     R2_BUCKET_NAME=betterflow-storage
-    CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
     R2_API_TOKEN=your_r2_api_token
+    NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev
+    NEXT_PUBLIC_R2_CUSTOM_DOMAIN=assets.yourdomain.com
+    NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com
     ```
 
     See the [Environment Variable Reference](/configuration/environment-variables) for the
-    complete list including optional analytics and social link variables.
+    complete list including optional analytics and SEO variables.
   </Step>
 
   <Step title="Deploy">
@@ -145,7 +146,7 @@ Before directing real traffic to your deployment, confirm the following:
   **Required before going live:**
 
   - ✅ `NEXT_PUBLIC_SITE_URL` is set to your production domain (not `localhost`).
-  - ✅ All eight Cloudflare R2 variables are set if you want the background gallery and Chrome
+  - ✅ All Cloudflare R2 variables are set if you want the background gallery and Chrome
     extension uploads to work.
   - ✅ R2 bucket CORS policy allows your production origin.
   - ✅ `NEXT_PUBLIC_POSTHOG_KEY` is set (or intentionally left blank to disable analytics).

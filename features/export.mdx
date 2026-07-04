@@ -1,24 +1,24 @@
 ---
-title: "Export: PNG, MP4, WebM & GIF with Hardware Acceleration"
+title: "Export: PNG, JPEG, WebP, MP4, WebM & GIF Formats"
 sidebarTitle: "Export"
-description: "Export screenshots as PNG/JPG up to 5× scale or videos as MP4, WebM, and GIF using WebCodecs, FFmpeg WASM, and MediaRecorder — all fully in-browser."
+description: "Export screenshots as PNG, JPEG, or WebP up to 5× scale, or videos as MP4, WebM, and GIF using WebCodecs, FFmpeg WASM, and MediaRecorder — all in-browser."
 ---
 
 Betterflow's export system is entirely client-side — no files leave your browser unless you choose to download them. Image exports run through a layered compositing pipeline and an optional Sharp API pass for format-specific optimization. Video exports use the best available encoder for the chosen format, with automatic fallback to ensure broad browser compatibility.
 
 ## Image Export
 
-Static screenshots can be exported as **PNG** or **JPG** at up to **5× scale**:
+Static screenshots can be exported as **PNG**, **JPEG**, or **WebP** at up to **5× scale**:
 
 <CardGroup cols={3}>
   <Card title="Format" icon="file-image">
-    **PNG** preserves transparency (useful when the background is set to transparent). **JPG** produces smaller files at the cost of the alpha channel.
+    **PNG** preserves transparency (useful when the background is set to transparent). **JPEG** produces smaller files at the cost of the alpha channel. **WebP** offers the smallest file size with good quality for web use.
   </Card>
   <Card title="Scale (1×–5×)" icon="magnifying-glass-plus">
     Export at 1×, 2×, 3×, 4×, or 5× the canvas pixel dimensions. CSS gradients and vector-like elements scale with no quality loss; raster images are upsampled with high-quality bicubic interpolation.
   </Card>
-  <Card title="Quality Slider" icon="sliders">
-    For JPG exports, a 0–1 quality slider controls JPEG compression. Values above 0.85 are visually lossless for most screenshots; lower values trade quality for file size.
+  <Card title="Quality Preset" icon="sliders">
+    Choose **High**, **Medium**, or **Low** quality. For JPEG: 85%, 75%, 60% respectively. For WebP: 82%, 72%, 55%. PNG is always lossless regardless of preset.
   </Card>
 </CardGroup>
 
@@ -160,7 +160,7 @@ All exports are automatically saved locally in IndexedDB under the `exports` obj
 {
   id: string;          // Unique export ID
   blob: Blob;          // The exported file data
-  format: string;      // 'png' | 'jpg' | 'mp4' | 'webm' | 'gif'
+  format: string;      // 'png' | 'jpeg' | 'webp' | 'mp4' | 'webm' | 'gif'
   quality: string;     // 'high' | 'medium' | 'low'
   scale: number;       // Export scale factor
   timestamp: number;   // Unix timestamp
