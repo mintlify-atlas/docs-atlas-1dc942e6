@@ -1,0 +1,77 @@
+---
+title: "POST /api/upload-video — Upload Video from Extension"
+sidebarTitle: "POST /upload-video"
+description: "Accept a base64-encoded video recording from the Chrome extension and upload it server-side to Cloudflare R2 via the Cloudflare REST API."
+---
+
+The `/api/upload-video` route is the **direct upload path** for the Betterflow Chrome extension. When the extension finishes recording a screen capture, it base64-encodes the video `Blob` and `POST`s it to this endpoint. The server decodes the data, constructs an R2 object key under `backgrounds/videos/`, and uploads the binary to your R2 bucket using the Cloudflare REST API — returning a public CDN URL the editor can load immediately.
+
+This route complements [`/api/upload-url`](/api/upload-url): use `/upload-url` when the client can `PUT` directly to R2; use `/upload-video` when the extension must route through the server (e.g. due to strict CSP rules or firewall constraints).
+
+## Endpoint
+
+| Property | Value |
+|---|---|
+| **Method** | `POST` |
+| **Path** | `/api/upload-video` |
+| **Content-Type** | `application/json` |
+
+CORS preflight requests (`OPTIONS`) are handled automatically, allowing the Chrome extension to call this route from any origin.
+
+## Request Body
+
+<ParamField body="videoBase64" type="string" required>
+  The complete video file encoded as a Base64 string. The server decodes this with `Buffer.from(videoBase64, 'base64')` before uploading to R2. Only `video/webm` content is expected from the Chrome extension.
+</ParamField>
+
+<ParamField body="fileName" type="string">
+  The desired filename for the uploaded video. If omitted, the server generates a timestamp-based name: `recording-{Date.now()}.webm`. The final R2 key is always prefixed with `backgrounds/videos/{timestamp}-`.
+</ParamField>
+
+## Response Body
+
+A successful `200` response returns:
+
+<ResponseField name="success" type="boolean">
+  `true` when the upload to R2 completed without errors.
+</ResponseField>
+
+<ResponseField name="fileUrl" type="string">
+  The public URL of the uploaded video, served via `NEXT_PUBLIC_CDN_URL`. The editor uses this URL to load the video as a background asset directly on the Konva canvas.
+</ResponseField>
+
+## Example
+
+```bash
+# Base64-encode a local video and POST it
+VIDEO_B64=$(base64 -i screen-recording.webm | tr -d '\n')
+
+curl -X POST https://your-instance.com/api/upload-video \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"videoBase64\": \"${VIDEO_B64}\",
+    \"fileName\": \"my-recording.webm\"
+  }"
+```
+
+```json
+{
+  "success": true,
+  "fileUrl": "https://cdn.your-domain.com/backgrounds/videos/1720000000000-my-recording.webm"
+}
+```
+
+<Note>
+  Because the entire video payload is serialized as JSON, this route is best suited for short recordings. For longer videos, prefer the presigned-URL flow via [`/api/upload-url`](/api/upload-url), which streams the file directly from the browser to R2 without sending it through the Next.js server.
+</Note>
+
+## Error Responses
+
+| Status | Description |
+|---|---|
+| `400 Bad Request` | `videoBase64` is missing from the request body. Returns `{ "error": "Missing video data" }`. |
+| `500 Internal Server Error` | The Cloudflare R2 API returned a non-OK status, or the server environment variables (`CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_API_TOKEN`) are not configured. Returns `{ "error": "Upload failed", "details": "<error message>" }`. |
+
+<Warning>
+  This route requires `CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET_NAME`, and `R2_API_TOKEN` (in `cfut_xxx` format) to be set as server-side environment variables. If any of these are missing, the upload will fail with a 500 error.
+</Warning>

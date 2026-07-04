@@ -1,0 +1,93 @@
+---
+title: "Betterflow Chrome Extension for Screen Recording"
+sidebarTitle: "Overview"
+description: "Record your screen with one click using the Betterflow Chrome Extension, then edit and export directly in the browser-based editor."
+---
+
+The Betterflow Chrome Extension lets you capture your screen without leaving your browser. Once a recording is complete, it is automatically uploaded to your Betterflow instance and opened in the editor — no manual file handling required. The extension works from any browser tab and supports two capture modes so you can frame exactly what you need.
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+  <Card title="One-Click Recording" icon="circle-dot">
+    Click the extension icon on any tab to start capturing immediately — no extra steps or pop-up flows required.
+  </Card>
+  <Card title="Flexible Capture Modes" icon="expand">
+    Choose between **full page** capture (the entire scrollable document) or **visible area** capture (only the current viewport).
+  </Card>
+  <Card title="Automatic Upload" icon="cloud-arrow-up">
+    Recordings are base64-encoded in the extension and POSTed to `/api/upload-video`, which stores the file in Cloudflare R2.
+  </Card>
+  <Card title="Seamless Editor Integration" icon="wand-magic-sparkles">
+    After upload, the public CDN URL is passed to the Betterflow editor, so your recording opens ready to edit without any copy-and-paste.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+The upload flow connects the extension directly to your Betterflow instance and Cloudflare R2 storage:
+
+```text
+Browser tab
+  ↓  User clicks extension icon and selects capture mode
+Chrome Extension records screen via browser APIs
+  ↓  Recording is base64-encoded in the extension
+POST /api/upload-video  { videoBase64, fileName }
+  ↓  Server decodes the base64 payload to a binary buffer
+Cloudflare R2  (stored under backgrounds/videos/<timestamp>-<fileName>)
+  ↓  Public CDN URL constructed from NEXT_PUBLIC_CDN_URL
+Betterflow editor opens with the video URL pre-loaded
+```
+
+### `/api/upload-video`
+
+The extension sends a `POST` request with a JSON body:
+
+```json
+{
+  "videoBase64": "<base64-encoded WebM data>",
+  "fileName": "recording-1234567890.webm"
+}
+```
+
+The server decodes the payload, uploads the binary buffer to R2 via the Cloudflare API, and returns:
+
+```json
+{
+  "success": true,
+  "fileUrl": "https://your-cdn-domain/backgrounds/videos/1234567890-recording.webm"
+}
+```
+
+Files are stored at the path `backgrounds/videos/<timestamp>-<fileName>` inside your R2 bucket.
+
+### `/api/upload-url`
+
+For alternative upload flows, `/api/upload-url` generates a **presigned R2 URL** that expires in 5 minutes. The extension (or any client) can then PUT the video binary directly to R2 without proxying through the Next.js server.
+
+```json
+// Request
+{ "fileName": "clip.webm", "contentType": "video/webm" }
+
+// Response
+{
+  "uploadUrl": "https://...(presigned R2 URL)...",
+  "fileUrl": "https://your-cdn-domain/backgrounds/videos/<key>"
+}
+```
+
+<Note>
+  The presigned URL endpoint is provided for advanced integration scenarios. The Chrome Extension uses `/api/upload-video` by default.
+</Note>
+
+## Requirements
+
+| Requirement | Details |
+|---|---|
+| **Browser** | Google Chrome (the extension uses Chrome Extension APIs) |
+| **Cloudflare R2** | `CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_API_TOKEN`, and `NEXT_PUBLIC_CDN_URL` must be set for automatic upload to work |
+| **Betterflow instance** | The extension must point to a running Betterflow deployment with the API routes accessible |
+
+<Warning>
+  Without a valid Cloudflare R2 configuration, the `/api/upload-video` route will fail and recordings will not be saved. See the environment variable reference in your deployment documentation for the full list of required values.
+</Warning>

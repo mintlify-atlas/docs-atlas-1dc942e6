@@ -1,0 +1,99 @@
+---
+title: "Using the Betterflow Chrome Extension"
+sidebarTitle: "Usage"
+description: "Step-by-step guide to installing the Betterflow Chrome Extension and recording your screen for use in the editor."
+---
+
+The Betterflow Chrome Extension bridges your browser tabs and the Betterflow editor in a single click. This page walks you through installing the extension, making sure your instance is ready to receive uploads, and recording your first clip. A troubleshooting section at the bottom covers the most common issues you may encounter.
+
+## Installation and First Recording
+
+<Steps>
+  <Step title="Install the Chrome Extension">
+    Open the [Better Flow extension page](https://chrome.google.com/webstore) on the Chrome Web Store and click **Add to Chrome**. Confirm the permissions prompt to complete installation.
+  </Step>
+
+  <Step title="Configure R2 Storage on Your Betterflow Instance">
+    Automatic upload requires Cloudflare R2 credentials. Make sure the following environment variables are set on your Betterflow deployment before recording:
+
+    ```bash
+    CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+    R2_BUCKET_NAME=your_bucket_name
+    R2_API_TOKEN=your_r2_api_token          # cfut_xxx format
+    NEXT_PUBLIC_CDN_URL=https://your-cdn-domain
+    ```
+
+    See the [Storage Configuration](/configuration/storage) page for the full setup guide.
+
+    <Note>
+      If these variables are missing or incorrect, the `/api/upload-video` endpoint will return an error and your recording will not be saved.
+    </Note>
+  </Step>
+
+  <Step title="Click the Extension Icon">
+    Navigate to any webpage you want to record, then click the **Better Flow** icon in your Chrome toolbar. If you do not see it, pin it from the Chrome extensions menu (see Troubleshooting below).
+  </Step>
+
+  <Step title="Select a Capture Mode">
+    The extension popup presents two modes:
+
+    | Mode | What it captures |
+    |---|---|
+    | **Full Page** | The entire scrollable document |
+    | **Visible Area** | Only the portion of the page currently visible in the viewport |
+
+    Choose the mode that best frames your content and start the recording.
+  </Step>
+
+  <Step title="Recording Uploads Automatically">
+    When you stop recording, the extension base64-encodes the WebM file and POSTs it to your Betterflow instance at `/api/upload-video`. The video is stored in your R2 bucket under `backgrounds/videos/` and the public CDN URL is returned to the extension.
+  </Step>
+
+  <Step title="Edit and Export Your Recording">
+    The editor opens automatically with your recording pre-loaded. From here you can apply backgrounds, device frames, 3D transforms, text overlays, and animations before exporting as MP4, WebM, or GIF.
+  </Step>
+</Steps>
+
+## API Reference
+
+The extension relies on two API routes. Refer to their reference pages for request/response schemas and error codes:
+
+- **[`/api/upload-video`](/api/upload-video)** — Receives a base64-encoded WebM payload and writes it to R2.
+- **[`/api/upload-url`](/api/upload-url)** — Generates a presigned R2 URL (expires in 5 minutes) for direct client uploads.
+
+## Troubleshooting
+
+<Accordion title="Recording doesn't upload automatically">
+  The upload step calls `/api/upload-video` on your Betterflow server. Check the following:
+
+  1. Confirm `CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_API_TOKEN`, and `NEXT_PUBLIC_CDN_URL` are set in your deployment environment.
+  2. Verify the extension is pointed at the correct Betterflow origin.
+  3. Open your browser's DevTools **Network** tab, trigger a recording, and inspect the response from `/api/upload-video` for a specific error message.
+
+  ```bash
+  # Quick check — expected response on success
+  { "success": true, "fileUrl": "https://your-cdn-domain/backgrounds/videos/..." }
+  ```
+</Accordion>
+
+<Accordion title="Video appears blank in the editor">
+  A blank or broken video in the editor usually means the browser cannot load the file from R2 due to a CORS policy mismatch.
+
+  1. Open your Cloudflare R2 bucket settings and add a CORS rule that allows `GET` requests from your Betterflow domain.
+  2. Make sure `NEXT_PUBLIC_CDN_URL` points to a public-facing CDN or custom domain, not an internal R2 API endpoint.
+  3. If you are using a custom domain in front of R2, confirm the domain's SSL certificate is valid and the CDN is forwarding the `Content-Type: video/webm` header.
+
+  <Warning>
+    Without a permissive CORS policy on your R2 bucket, the editor's `<video>` element will silently refuse to load cross-origin files.
+  </Warning>
+</Accordion>
+
+<Accordion title="Extension icon is not visible in the toolbar">
+  Chrome may collapse the extension into the hidden extensions menu after installation.
+
+  1. Click the **puzzle-piece icon** (Extensions) in the top-right corner of Chrome.
+  2. Find **Better Flow** in the list.
+  3. Click the **pin icon** next to it.
+
+  The Better Flow icon will now appear permanently in your toolbar.
+</Accordion>

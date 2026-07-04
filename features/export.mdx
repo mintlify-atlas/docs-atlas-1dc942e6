@@ -1,0 +1,188 @@
+---
+title: "Export: PNG, MP4, WebM & GIF with Hardware Acceleration"
+sidebarTitle: "Export"
+description: "Export screenshots as PNG/JPG up to 5× scale or videos as MP4, WebM, and GIF using WebCodecs, FFmpeg WASM, and MediaRecorder — all fully in-browser."
+---
+
+Betterflow's export system is entirely client-side — no files leave your browser unless you choose to download them. Image exports run through a layered compositing pipeline and an optional Sharp API pass for format-specific optimization. Video exports use the best available encoder for the chosen format, with automatic fallback to ensure broad browser compatibility.
+
+## Image Export
+
+Static screenshots can be exported as **PNG** or **JPG** at up to **5× scale**:
+
+<CardGroup cols={3}>
+  <Card title="Format" icon="file-image">
+    **PNG** preserves transparency (useful when the background is set to transparent). **JPG** produces smaller files at the cost of the alpha channel.
+  </Card>
+  <Card title="Scale (1×–5×)" icon="magnifying-glass-plus">
+    Export at 1×, 2×, 3×, 4×, or 5× the canvas pixel dimensions. CSS gradients and vector-like elements scale with no quality loss; raster images are upsampled with high-quality bicubic interpolation.
+  </Card>
+  <Card title="Quality Slider" icon="sliders">
+    For JPG exports, a 0–1 quality slider controls JPEG compression. Values above 0.85 are visually lossless for most screenshots; lower values trade quality for file size.
+  </Card>
+</CardGroup>
+
+### Copy to Clipboard
+
+The **Copy** action runs the same compositing pipeline as a normal export but skips the Sharp API pass (`skipSharp: true`) for speed. The resulting image blob is written directly to the clipboard via the Clipboard API.
+
+## Video Export
+
+Betterflow exports animations as **MP4**, **WebM**, or **GIF** by rendering the animation frame-by-frame and passing the frames through the appropriate encoder.
+
+### Encoder Selection
+
+The encoder is chosen automatically based on the requested format and browser capabilities:
+
+```
+Format = GIF   →  FFmpeg WASM (only option for GIF)
+Format = WebM  →  MediaRecorder (native browser API)
+Format = MP4   →  WebCodecs H.264 (hardware-accelerated)
+                    └── if unsupported → FFmpeg WASM (H.264 fallback)
+```
+
+<Tabs>
+  <Tab title="WebCodecs (MP4)">
+    The preferred encoder for MP4. Uses the browser's `VideoEncoder` API, which routes to hardware acceleration on supported platforms (Apple Silicon, modern Intel/AMD GPUs). Produces MP4/H.264 output via `mp4-muxer` — no server required.
+
+    ```ts
+    // From lib/export/webcodecs-encoder.ts
+    export function isWebCodecsSupported(): boolean {
+      return (
+        typeof VideoEncoder !== 'undefined' &&
+        typeof VideoFrame !== 'undefined' &&
+        typeof EncodedVideoChunk !== 'undefined'
+      );
+    }
+
+    // H.264 codec profiles tried in order (highest to lowest)
+    const codecs = [
+      'avc1.640032', // High Profile, Level 5.0 — up to 4K
+      'avc1.64002A', // High Profile, Level 4.2 — up to 1080p
+      'avc1.640028', // High Profile, Level 4.0
+      'avc1.4d0032', // Main Profile, Level 5.0
+      'avc1.4d0028', // Main Profile, Level 4.0
+      'avc1.42001E', // Baseline Profile, Level 3.0
+    ];
+    ```
+
+    Key-frames are inserted every 2 seconds (`frameIndex % (fps * 2) === 0`). Backpressure handling yields to the browser if the encoder queue exceeds 8 pending frames.
+  </Tab>
+  <Tab title="FFmpeg WASM">
+    Used for GIF exports and as the MP4 fallback when WebCodecs is unavailable. FFmpeg is compiled to WebAssembly and runs entirely in the browser tab.
+
+    **Performance optimizations:**
+    - JPEG frames instead of PNG (~5× faster encoding per frame)
+    - Multi-threaded WASM core when `crossOriginIsolated` is `true` (SharedArrayBuffer)
+    - WASM binaries cached via the Cache API across browser sessions — subsequent exports load instantly
+    - Singleton FFmpeg instance with a mutex to prevent virtual filesystem corruption from concurrent exports
+    - `ultrafast` H.264 preset minimizes WASM CPU time with negligible quality impact
+
+    ```ts
+    // From lib/export/ffmpeg-encoder.ts
+    const QUALITY_CRF: Record<FFmpegQuality, number> = {
+      high: 18,   // Visually lossless
+      medium: 23, // Good quality, reasonable file size
+      low: 28,    // Smaller file, minor quality loss
+    };
+    ```
+
+    GIF exports use FFmpeg's two-pass palette generation for maximum color accuracy:
+
+    ```
+    fps=N,scale=W:H:flags=lanczos,split[s0][s1];
+    [s0]palettegen=max_colors=256[p];
+    [s1][p]paletteuse=dither=bayer
+    ```
+  </Tab>
+  <Tab title="MediaRecorder (WebM)">
+    WebM exports use the browser's native `MediaRecorder` API. The encoder renders frames onto an offscreen `<canvas>`, streams the canvas via `captureStream(fps)`, and records the stream to a `Blob`.
+
+    Codec selection is automatic:
+    1. `video/webm; codecs=vp9` (preferred, better quality)
+    2. `video/webm; codecs=vp8` (fallback)
+
+    ```ts
+    // From lib/export/video-encoder.ts
+    const QUALITY_BITRATES: Record<VideoQuality, number> = {
+      high: 25_000_000,   // 25 Mbps
+      medium: 10_000_000, // 10 Mbps
+      low: 5_000_000,     //  5 Mbps
+    };
+    ```
+
+    Frames yield to the main thread every 10 frames (`requestIdleCallback` with a 16ms timeout) to keep the editor UI responsive during export.
+  </Tab>
+</Tabs>
+
+## Quality Presets
+
+All encoders share the same three quality tiers:
+
+| Preset | Bitrate (MediaRecorder) | CRF (FFmpeg/WebCodecs) | Recommended Use |
+|--------|------------------------|------------------------|-----------------|
+| **High** | 25 Mbps | 18 | Final delivery, social media uploads |
+| **Medium** | 10 Mbps | 23 | Web embeds, presentations |
+| **Low** | 5 Mbps | 28 | Quick shares, messaging apps |
+
+<Note>
+  CRF 18 is considered "visually lossless" for H.264. For GIF exports, quality is controlled by the palette size (fixed at 256 colors) and the Bayer dithering algorithm — the quality preset does not affect GIF output.
+</Note>
+
+## Compositing Pipeline
+
+Every export — image or video frame — follows the same multi-step compositing pipeline:
+
+<Steps>
+  <Step title="Set Playhead (video only)">
+    For each video frame, the playhead is moved to the corresponding timestamp and `getClipInterpolatedProperties` computes the animated property values for that moment in time.
+  </Step>
+  <Step title="Capture the Full Canvas">
+    The HTML canvas container (which holds background, image, borders, shadows, and 3D transforms) is captured using `domToCanvas` from `modern-screenshot`. If a 3D transform is active, `capture3DTransformWithModernScreenshot` is used instead for correct perspective rendering.
+  </Step>
+  <Step title="Apply Blur Regions (post-process)">
+    CSS `backdrop-filter` doesn't render inside `domToCanvas`. Any active blur regions are applied as a post-processing step directly on the captured canvas using the Canvas 2D `filter: blur()` API with a clipping path.
+  </Step>
+  <Step title="Sharp Processing (images only)">
+    The composited canvas is sent to the Sharp API for format-specific optimization: lossless PNG compression, JPEG quality control, and correct color profile embedding. Video frames skip this step — FFmpeg handles compression.
+  </Step>
+  <Step title="Download & Save">
+    The final blob is triggered as a browser download. A copy is also saved to IndexedDB with metadata (format, quality, scale, timestamp, filename) for the export history.
+  </Step>
+</Steps>
+
+## IndexedDB Export Storage
+
+All exports are automatically saved locally in IndexedDB under the `exports` object store:
+
+```ts
+// IndexedDB schema for exported files
+{
+  id: string;          // Unique export ID
+  blob: Blob;          // The exported file data
+  format: string;      // 'png' | 'jpg' | 'mp4' | 'webm' | 'gif'
+  quality: string;     // 'high' | 'medium' | 'low'
+  scale: number;       // Export scale factor
+  timestamp: number;   // Unix timestamp
+  fileName: string;    // Suggested download filename
+}
+```
+
+Export preferences (format, quality, scale) are persisted in a separate `export-preferences` store and restored automatically the next time you open the editor.
+
+<Tip>
+  IndexedDB storage is browser-local and private — your exported files never leave your device unless you explicitly download or share them. There is no usage limit imposed by Betterflow, though browsers enforce their own storage quotas.
+</Tip>
+
+## Progress Tracking
+
+All export operations emit progress events through the `useExportProgress` hook. A progress bar in the export panel updates in real time:
+
+| Stage | Progress Range |
+|-------|---------------|
+| DOM preparation | 0% → 10% |
+| Canvas capture | 10% → 55% |
+| Sharp / encoding | 55% → 90% |
+| Finalization | 90% → 100% |
+
+For video exports, per-frame progress is reported as each frame is encoded, giving a smooth 0–100% indicator across the full encoding run.

@@ -1,0 +1,95 @@
+---
+title: "POST /api/export — Server-Side Image Export"
+sidebarTitle: "POST /export"
+description: "Compress a canvas export server-side with Sharp using MozJPEG, libwebp, and adaptive PNG filtering — producing smaller files than the browser canvas API."
+---
+
+The `/api/export` route offloads image **compression** to the server using [Sharp](https://sharp.pixelplumbing.com/). Most Betterflow exports happen entirely in the browser (the canvas is composited with `html2canvas` and Konva, then converted to a `Blob`), but the browser's `canvas.toBlob('image/jpeg')` encoder cannot match the compression efficiency of native libraries. By sending the raw PNG canvas output to this route, the editor can produce:
+
+- **JPEG** via MozJPEG — typically 10–15 % smaller than browser JPEG at the same quality setting
+- **WebP** via libwebp — consistently smaller than browser WebP
+- **PNG** via zlib with adaptive filtering — optimal lossless compression
+
+The route accepts `multipart/form-data` so the raw image binary never needs to be base64-encoded for transit.
+
+## Endpoint
+
+| Property | Value |
+|---|---|
+| **Method** | `POST` |
+| **Path** | `/api/export` |
+| **Content-Type** | `multipart/form-data` |
+
+## Request Body (Form Fields)
+
+<ParamField body="image" type="File" required>
+  The raw image file to compress. Typically the PNG output of the client-side compositing pipeline. Any format readable by Sharp is accepted as input.
+</ParamField>
+
+<ParamField body="format" type="string" required>
+  Output format. Must be one of `"png"`, `"jpeg"`, or `"webp"`.
+</ParamField>
+
+<ParamField body="qualityPreset" type="string" required>
+  Quality level. Must be one of `"high"`, `"medium"`, or `"low"`. See the quality table below for the numeric settings each preset maps to.
+</ParamField>
+
+## Quality Presets
+
+| Preset | JPEG quality | PNG compression | WebP quality |
+|---|---|---|---|
+| `high` | 85 | 6 | 82 |
+| `medium` | 75 | 9 | 72 |
+| `low` | 60 | 9 | 55 |
+
+PNG compression levels follow zlib conventions (0 = no compression, 9 = maximum). JPEG and WebP values are percentages (0–100). JPEG output additionally enables the `mozjpeg: true` encoder flag.
+
+<Note>
+  JPEG does not support transparency. When `format` is `"jpeg"`, the route flattens the alpha channel to a **white background** before encoding. If your design has transparent regions and you want to preserve them, use `"png"` or `"webp"`.
+</Note>
+
+## Response
+
+On success the route returns the compressed image **binary** directly (not JSON) with:
+
+- `Content-Type` set to the appropriate MIME type (`image/jpeg`, `image/webp`, or `image/png`)
+- `Content-Length` set to the exact byte size of the compressed output
+
+## Example
+
+```bash
+curl -X POST https://your-instance.com/api/export \
+  -F "image=@canvas-output.png" \
+  -F "format=jpeg" \
+  -F "qualityPreset=high" \
+  --output compressed.jpg
+```
+
+To export as WebP at medium quality:
+
+```bash
+curl -X POST https://your-instance.com/api/export \
+  -F "image=@canvas-output.png" \
+  -F "format=webp" \
+  -F "qualityPreset=medium" \
+  --output compressed.webp
+```
+
+## Export Pipeline Context
+
+The full client-side export pipeline that feeds into this route runs as follows:
+
+1. **Background** — captured with `html2canvas` from the CSS-rendered background element
+2. **Konva stage** — the user image exported at high pixel ratio
+3. **Overlays** — text and image overlays captured with `html2canvas` in a temporary DOM container
+4. **Compositing** — all three layers merged onto a single `<canvas>`, watermark added
+5. **Server compression** — the composited PNG is `POST`ed to `/api/export`, and the compressed binary is saved via `IndexedDB` and triggered as a browser download
+
+## Error Responses
+
+| Status | Description |
+|---|---|
+| `400 Bad Request` | `image` file is missing. Returns `{ "error": "Missing image file" }`. |
+| `400 Bad Request` | `format` is not `"png"`, `"jpeg"`, or `"webp"`. Returns `{ "error": "Invalid format. Must be \"png\", \"jpeg\", or \"webp\"" }`. |
+| `400 Bad Request` | `qualityPreset` is not `"high"`, `"medium"`, or `"low"`. Returns `{ "error": "Invalid qualityPreset. Must be \"high\", \"medium\", or \"low\"" }`. |
+| `500 Internal Server Error` | Sharp processing failed. Returns `{ "error": "<Sharp error message>" }`. |

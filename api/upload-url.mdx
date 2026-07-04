@@ -1,0 +1,82 @@
+---
+title: "POST /api/upload-url — Generate R2 Presigned URLs"
+sidebarTitle: "POST /upload-url"
+description: "Generate a short-lived S3-compatible presigned URL for direct client-to-R2 uploads from the Chrome extension, avoiding credential exposure in the browser."
+---
+
+The `/api/upload-url` route generates a **presigned S3-compatible upload URL** for Cloudflare R2. Instead of routing large video files through the Next.js server, the Chrome extension calls this endpoint to obtain a temporary upload URL and then `PUT`s the file directly to R2 from the browser — keeping credentials safely server-side. The presigned URL expires after **5 minutes** (300 seconds).
+
+## Endpoint
+
+| Property | Value |
+|---|---|
+| **Method** | `POST` |
+| **Path** | `/api/upload-url` |
+| **Content-Type** | `application/json` |
+
+The route also responds to `OPTIONS` preflight requests and returns appropriate `Access-Control-Allow-*` headers so the Chrome extension (a cross-origin client) can call it directly.
+
+## Request Body
+
+<ParamField body="fileName" type="string" required>
+  The desired name of the file to be uploaded. Combined with a Unix timestamp prefix, this forms the R2 object key: `backgrounds/videos/{timestamp}-{fileName}`.
+</ParamField>
+
+<ParamField body="contentType" type="string" required>
+  The MIME type of the file being uploaded. For screen recordings this is typically `video/webm`. Used to set the `Content-Type` on the R2 object.
+</ParamField>
+
+## Response Body
+
+A successful `200` response returns a JSON object:
+
+<ResponseField name="uploadUrl" type="string">
+  A presigned S3-compatible URL. Send a `PUT` request with the raw file binary to this URL to upload the object to R2. The URL expires after 5 minutes.
+</ResponseField>
+
+<ResponseField name="fileUrl" type="string">
+  The public CDN URL the file will be accessible at once uploaded. Constructed as `{NEXT_PUBLIC_CDN_URL}/backgrounds/videos/{timestamp}-{fileName}`.
+</ResponseField>
+
+## Example
+
+### Generate a presigned URL
+
+```bash
+curl -X POST https://your-instance.com/api/upload-url \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fileName": "screen-recording.webm",
+    "contentType": "video/webm"
+  }'
+```
+
+```json
+{
+  "uploadUrl": "https://your-r2-endpoint.com/better-flow-storage/backgrounds/videos/1720000000000-screen-recording.webm?X-Amz-Algorithm=...&X-Amz-Expires=300...",
+  "fileUrl": "https://cdn.your-domain.com/backgrounds/videos/1720000000000-screen-recording.webm"
+}
+```
+
+### Upload the file using the presigned URL
+
+```bash
+curl -X PUT "<uploadUrl>" \
+  -H "Content-Type: video/webm" \
+  --data-binary @screen-recording.webm
+```
+
+<Note>
+  The Chrome extension follows this two-step pattern automatically. It calls `/api/upload-url` first, then streams the recorded `Blob` directly to R2 using the returned `uploadUrl` — no video data passes through the Next.js server.
+</Note>
+
+## Error Responses
+
+| Status | Description |
+|---|---|
+| `400 Bad Request` | `fileName` or `contentType` is missing from the request body. Returns `{ "error": "Missing required fields: fileName and contentType" }`. |
+| `500 Internal Server Error` | R2 credentials are not configured (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_URL`), or signing the presigned URL failed. Returns `{ "error": "Internal Server Error" }`. |
+
+<Warning>
+  Presigned URLs expose a time-limited write capability to your R2 bucket. They expire after 5 minutes, but you should ensure your bucket has appropriate public-read settings and that the `R2_SECRET_ACCESS_KEY` is never exposed client-side.
+</Warning>

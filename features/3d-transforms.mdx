@@ -1,0 +1,154 @@
+---
+title: "3D Transforms: Perspective Depth with 30+ Presets"
+sidebarTitle: "3D Transforms"
+description: "Apply CSS 3D perspective transforms to your screenshots — tilt, rotate, zoom, and translate in three dimensions with 30+ presets and real-time preview."
+---
+
+Flat screenshots feel static. Betterflow's 3D transform system applies CSS perspective transforms directly to your image, giving it realistic depth and spatial presence in seconds. With over 30 built-in presets and individual axis controls, you can reproduce the exact camera angles used by Apple, Vercel, and other design-forward teams — and export the result at full resolution with perfect CSS fidelity.
+
+## How CSS 3D Transforms Work
+
+Betterflow uses native CSS 3D transforms via `perspective`, `rotateX`, `rotateY`, `rotateZ`, `translateX`, `translateY`, and `scale` properties applied to the image container. The browser's GPU compositor handles the actual rendering, which means transforms are smooth, sub-pixel accurate, and don't degrade image quality.
+
+The `perspective` property sets the distance (in pixels) between the viewer's eye and the z=0 plane. Lower values produce more dramatic, fish-eye-like depth; higher values create a subtle, telephoto-style depth effect.
+
+```
+perspective: 2400px  →  telephoto, subtle depth (default)
+perspective: 1400px  →  moderate depth
+perspective: 800px   →  dramatic, wide-angle depth
+```
+
+## Animatable Properties
+
+These are the eight properties that the 3D transform system can control, both interactively and through the animation engine:
+
+```ts
+// From types/animation.ts
+export interface AnimatableProperties {
+  perspective: number;   // CSS perspective distance in px (default: 2400)
+  rotateX: number;       // Degrees — tilt forward/backward
+  rotateY: number;       // Degrees — rotate left/right
+  rotateZ: number;       // Degrees — spin clockwise/counter-clockwise
+  translateX: number;    // Percentage offset on X axis
+  translateY: number;    // Percentage offset on Y axis
+  scale: number;         // Scale multiplier (1 = original size)
+  imageOpacity: number;  // 0–1 opacity applied to the image layer
+}
+
+export const DEFAULT_ANIMATABLE_PROPERTIES: AnimatableProperties = {
+  perspective: 2400,
+  rotateX: 0,
+  rotateY: 0,
+  rotateZ: 0,
+  translateX: 0,
+  translateY: 0,
+  scale: 1,
+  imageOpacity: 1,
+};
+```
+
+All eight properties are interpolated smoothly between keyframes by the animation engine — see [Animations](/features/animations) for details.
+
+## The Perspective3DControls Component
+
+The `Perspective3DControls` component lives in the right-side panel of the editor. It provides:
+
+- **Preset Gallery** — Browse and apply 30+ named presets organized by visual style
+- **Per-axis sliders** — Fine-tune `rotateX`, `rotateY`, `rotateZ`, `translateX`, `translateY`, and `scale` individually after applying a preset
+- **Perspective depth slider** — Adjust the CSS `perspective` value from wide-angle to telephoto
+- **Reset button** — Returns all properties to their default values instantly
+
+<Tip>
+  Apply a preset first to get the angle roughly right, then use the individual sliders to dial in the exact position. Presets are starting points, not final states.
+</Tip>
+
+## Preset Categories
+
+Presets are organized into five categories, covering the most common use cases for 3D-transformed product screenshots:
+
+<Tabs>
+  <Tab title="Reveal">
+    Entrance animations designed to start in a transformed state and land flat. Useful as static starting frames for marketing images.
+
+    | Preset | rotateX | rotateY | Notes |
+    |--------|---------|---------|-------|
+    | Hero Entrance | 25° | 0° | Tilted back, scale 0.95 |
+    | Slide In 3D | 0° | 30° | Right-side entry |
+    | Rise & Settle | –15° | 0° | Bottom-up with scale 0.97 |
+    | Drop In | 12° | 0° | Top-down with scale 0.97 |
+  </Tab>
+  <Tab title="Perspective">
+    Static showcase angles that present the screenshot at a visually interesting camera position.
+
+    | Preset | Description |
+    |--------|-------------|
+    | Showcase Tilt | Slow pan to rotateY 18°, rotateX 6° — classic product angle |
+    | Isometric | rotateX 22°, rotateY –22°, scale 0.95 |
+    | Hover Float | Subtle oscillating tilt — great for looping |
+    | Parallax Drift | Slow drift with perspective tightening from 2400 → 1600px |
+    | Apple Showcase | rotateX 20°, rotateY –15°, scale 0.96 — clean Apple-style reveal |
+  </Tab>
+  <Tab title="Orbit">
+    Rotational presets that swing the screenshot around one or more axes.
+
+    | Preset | Description |
+    |--------|-------------|
+    | Orbit Left | Arc to rotateY –25° and back |
+    | Orbit Right | Arc to rotateY +25° and back |
+    | Turntable | Full 360° rotateY rotation |
+    | Swing | Pendulum swing combining rotateZ and rotateY |
+  </Tab>
+  <Tab title="Depth">
+    Z-axis emphasis effects that push or pull the image through space.
+
+    | Preset | Description |
+    |--------|-------------|
+    | Push Away | Scale to 0.85, perspective tightens to 1600px |
+    | Pull Close | Scale from 0.95 → 1.03, perspective loosens |
+    | Dramatic Zoom | Scale 0.95 → 1.08, deep perspective shift |
+    | Breathe 3D | Gentle breathing — scale 1 → 1.03 loop |
+  </Tab>
+  <Tab title="Flip">
+    Card-flip effects that rotate the image around an axis by 90°–180°.
+
+    | Preset | Description |
+    |--------|-------------|
+    | Flip X | 180° rotation on the X axis with a scale dip at 90° |
+    | Flip Y | 180° rotation on the Y axis with a scale dip at 90° |
+    | Peek | rotateY 0° → 35° → 0° — peeks behind the card |
+    | Flip Reveal | Starts at rotateY –90°, snaps to flat with a slight bounce |
+  </Tab>
+</Tabs>
+
+## Export with 3D Transforms
+
+Standard DOM-to-canvas tools like html2canvas do not correctly render CSS 3D perspective transforms. Betterflow detects when any 3D transform is active and automatically switches to **`modern-screenshot` (`domToCanvas`)** for the capture step:
+
+```ts
+// From lib/export/export-service.ts
+const has3DTransform =
+  perspective3D &&
+  imageSrc &&
+  (perspective3D.rotateX !== 0 ||
+    perspective3D.rotateY !== 0 ||
+    perspective3D.rotateZ !== 0 ||
+    perspective3D.translateX !== 0 ||
+    perspective3D.translateY !== 0 ||
+    perspective3D.scale !== 1);
+
+if (has3DTransform) {
+  finalCanvas = await capture3DTransformWithModernScreenshot(
+    container,
+    options.scale * Math.max(
+      options.exportWidth / container.clientWidth,
+      options.exportHeight / container.clientHeight
+    )
+  );
+}
+```
+
+`modern-screenshot` walks the DOM subtree and re-renders each element as a canvas layer, preserving 3D transforms, box shadows, CSS filters, and border-radius at the specified export scale. If `modern-screenshot` fails for any reason, Betterflow falls back to the standard `domToCanvas` HTML canvas path.
+
+<Note>
+  Video exports with 3D transforms use the same `capture3DTransformWithModernScreenshot` function for every frame, with `skipDelay: true` to skip the style-settle wait — keeping frame-rate performance as high as possible.
+</Note>

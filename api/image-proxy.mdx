@@ -1,0 +1,65 @@
+---
+title: "GET /api/image-proxy — Proxy R2 Images for Canvas"
+sidebarTitle: "GET /image-proxy"
+description: "Proxy Twitter/X media images through the same origin so that Konva canvas operations like getImageData and toBlob are not blocked by CORS policies."
+---
+
+The `/api/image-proxy` route fetches an image from an allowlisted external domain and streams it back through the Next.js origin. This exists to work around a fundamental browser security constraint: **canvas operations that read pixel data** (`getImageData`, `toBlob`, `toDataURL`) throw a `SecurityError` if the canvas has been "tainted" by images loaded from a different origin — even when those images are loaded with `crossOrigin: 'anonymous'`.
+
+By serving Twitter/X media assets through the same origin as the Betterflow editor, Konva can safely export the canvas to PNG or perform compositing without tainting the drawing surface.
+
+## Endpoint
+
+| Property | Value |
+|---|---|
+| **Method** | `GET` |
+| **Path** | `/api/image-proxy` |
+
+## Allowed Domains
+
+For security, this proxy only forwards requests to the following Twitter/X CDN hostnames:
+
+- `pbs.twimg.com`
+- `abs.twimg.com`
+- `ton.twitter.com`
+- `video.twimg.com`
+
+Any request for a URL whose hostname is not in this list is rejected with `403 Forbidden`.
+
+## Query Parameters
+
+<ParamField query="url" type="string" required>
+  The full, URL-encoded image URL to proxy. Must be an `https://` URL belonging to one of the allowed Twitter/X CDN domains listed above.
+</ParamField>
+
+## Response
+
+On success the route returns the raw image binary with:
+
+- The `Content-Type` header forwarded from the upstream response (e.g. `image/jpeg`, `image/png`, `image/webp`).
+- `Cache-Control: public, max-age=86400, immutable` — images are cached by the browser and any CDN layer for 24 hours.
+
+## Example
+
+```bash
+curl "https://your-instance.com/api/image-proxy?url=https%3A%2F%2Fpbs.twimg.com%2Fmedia%2FExample.jpg"
+```
+
+The response body is the raw image binary. In the browser or editor, reference the proxy URL instead of the original:
+
+```
+/api/image-proxy?url=https%3A%2F%2Fpbs.twimg.com%2Fmedia%2FExample.jpg%3Aformat%3Djpg%26name%3Dlarge
+```
+
+<Note>
+  **Why proxying is necessary for canvas exports:** Browsers implement the [CORS-tainted canvas](https://developer.mozilla.org/en-US/docs/Web/HTML/CORS_enabled_image) restriction. Even if an image server sends `Access-Control-Allow-Origin: *`, certain CDN configurations (including Twitter's) can behave inconsistently. Routing through the same origin eliminates the problem entirely and ensures `stage.toDataURL()` always succeeds.
+</Note>
+
+## Error Responses
+
+| Status | Description |
+|---|---|
+| `400 Bad Request` | The `url` query parameter is missing. Returns `{ "error": "Missing url parameter" }`. |
+| `403 Forbidden` | The `url` points to a domain not in the allowlist. Returns `{ "error": "Domain not allowed" }`. |
+| `502 Bad Gateway` | The upstream fetch to the Twitter/X CDN returned a non-OK status. Returns `{ "error": "Upstream fetch failed" }`. |
+| `500 Internal Server Error` | An unexpected error occurred while fetching or streaming the image. Returns `{ "error": "Failed to fetch image" }`. |

@@ -1,0 +1,91 @@
+---
+title: "Device Frames: Browser Mockups, Polaroids & Glass"
+sidebarTitle: "Device Frames"
+description: "Wrap screenshots in Safari, Chrome, Arc browser mockups or stylized frames like Polaroid, glass, and outline — with full shadow and border customization."
+---
+
+Framing a screenshot in a recognizable browser chrome or a styled border instantly elevates its perceived quality. Betterflow offers a complete set of device frames — from pixel-perfect browser mockups with live URL bars to artistic options like Polaroid prints, glass panels, and clean outlines — all configurable through the right-side control panel.
+
+## Browser Mockups
+
+<CardGroup cols={3}>
+  <Card title="Safari Light" icon="safari">
+    Faithful macOS Safari toolbar in light mode. Displays traffic-light window controls and a URL bar rendered with the font and sizing of the real browser.
+  </Card>
+  <Card title="Safari Dark" icon="safari">
+    Identical to Safari Light but with a dark toolbar and dark-mode traffic-light colors — ideal for dark-themed UI screenshots.
+  </Card>
+  <Card title="Chrome Light / Dark" icon="chrome">
+    Google Chrome mockup in both light and dark variants, including the characteristic tab strip and address bar.
+  </Card>
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card title="Arc Browser" icon="window">
+    The Arc browser frame features Arc's distinctive sidebar layout and space-themed aesthetic, perfect for showcasing macOS productivity apps.
+  </Card>
+  <Card title="Custom URL" icon="link">
+    All browser mockups support a custom URL string in the address bar. Type any URL and it renders inside the toolbar in real time — great for showing a live-looking product screenshot.
+  </Card>
+</CardGroup>
+
+### Header Size
+
+Browser mockups expose an **adjustable header size** control. Increasing the header size makes the toolbar proportionally taller, which works well at larger canvas dimensions or when you want the mockup to feel more prominent relative to the screenshot content.
+
+## Frame Styles
+
+Beyond browser mockups, Betterflow includes several flat frame styles that wrap the image without simulating a specific browser:
+
+| Style | Description |
+|-------|-------------|
+| **Polaroid** | Classic white Polaroid border with a wider bottom margin — perfect for travel and lifestyle photography |
+| **Glass** | Semi-transparent frosted-glass panel with a subtle border and backdrop blur |
+| **Outline** | Minimal single-pixel border that adds structure without obscuring content |
+| **Border** | Solid border with configurable width, color, and corner radius |
+
+## Border Controls
+
+The `BorderControls` component exposes fine-grained control over the border around your screenshot:
+
+<Steps>
+  <Step title="Border Style">
+    Choose from multiple named styles: **glassy**, **window**, **ruler**, and more. Each style applies a distinct visual treatment — from a translucent glass edge to a measurement-ruler aesthetic.
+  </Step>
+  <Step title="Border Width">
+    A numeric slider controls the border thickness in pixels. Works independently of the border radius so you can combine thick borders with rounded corners.
+  </Step>
+  <Step title="Border Color">
+    Pick any color using the color picker or paste a hex value. The glassy style uses semi-transparent whites/grays that adapt to the background.
+  </Step>
+  <Step title="Border Radius">
+    Rounded corners are controlled separately from the border style. The radius applies to both the image container and the border — they always match for a cohesive look.
+  </Step>
+</Steps>
+
+## Shadow Customization
+
+Every frame and border can have an independent drop shadow. The `ShadowControls` component provides:
+
+<CardGroup cols={2}>
+  <Card title="Blur Radius" icon="circle-dashed">
+    Controls how soft or hard the shadow edge appears. Higher values create the diffuse shadows common in modern UI design.
+  </Card>
+  <Card title="X / Y Offset" icon="arrows-up-down-left-right">
+    Shift the shadow horizontally and vertically. A slight downward offset with no horizontal shift creates a natural ground shadow.
+  </Card>
+  <Card title="Spread" icon="maximize">
+    Expands or contracts the shadow beyond the element boundary. Negative spread values create inset-like effects.
+  </Card>
+  <Card title="Color & Opacity" icon="droplet">
+    Full color picker plus opacity slider. Shadows can be colored (e.g. a tinted purple shadow for neon aesthetics) or kept as the classic semi-transparent black.
+  </Card>
+</CardGroup>
+
+<Note>
+  Shadow configuration is stored separately from the frame style, so you can apply the same custom shadow to any frame type — including browser mockups, Polaroids, and plain borders alike.
+</Note>
+
+<Tip>
+  For SaaS marketing screenshots, try **Safari Light** + a 40px blur shadow with 20% opacity and 0/8px offset. This combination closely matches what leading product marketing teams use for hero images.
+</Tip>

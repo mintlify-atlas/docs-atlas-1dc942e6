@@ -1,0 +1,122 @@
+---
+title: "Text & Image Overlays: Layer Content on Any Screenshot"
+sidebarTitle: "Overlays"
+description: "Add unlimited text overlays with custom fonts and shadows, layer decorative images, import tweets as styled cards, and embed syntax-highlighted code snippets."
+---
+
+Overlays turn a raw screenshot into a polished marketing asset. Betterflow supports two independent overlay systems — text and image — each of which can be freely positioned, resized, styled, and reordered. Overlays are composited on top of both the background and the main image during export, so they always appear in the correct z-order regardless of the export scale.
+
+## Text Overlays
+
+Text overlays let you add headlines, captions, labels, and callouts directly on the canvas. Every overlay is independent — you can have as many as you like, each with its own font, color, size, and position.
+
+<Steps>
+  <Step title="Add an Overlay">
+    Click **Add Text** in the left panel to insert a new text overlay. It appears centered on the canvas with default styling and is immediately selected for editing.
+  </Step>
+  <Step title="Edit Content">
+    Double-click the overlay to enter edit mode. Type or paste your text. Press `Escape` to deselect.
+  </Step>
+  <Step title="Style the Text">
+    Use the text overlay controls to configure:
+    - **Font family** — chosen from the curated font list in `lib/constants/fonts.ts`
+    - **Font size** — in pixels, adjustable via slider or direct input
+    - **Font weight** — thin, light, regular, medium, semibold, bold, extrabold
+    - **Color** — full color picker with hex input
+    - **Orientation** — horizontal (default) or vertical (rotated 90°)
+  </Step>
+  <Step title="Add a Text Shadow">
+    Enable the shadow toggle to reveal shadow controls: color, blur radius, X offset, and Y offset. Text shadows work well for ensuring legibility against complex backgrounds.
+  </Step>
+  <Step title="Position the Overlay">
+    Drag the overlay anywhere on the canvas. Positions are stored as percentages of the canvas dimensions, so they scale correctly when you change aspect ratios or export at higher resolutions.
+  </Step>
+</Steps>
+
+### Text Overlay Properties
+
+| Property | Type | Notes |
+|----------|------|-------|
+| `content` | `string` | The text to display |
+| `fontFamily` | `string` | Must match an available font key |
+| `fontSize` | `number` | In pixels at 1× scale |
+| `fontWeight` | `string` | CSS font-weight values |
+| `color` | `string` | Hex or RGB color string |
+| `orientation` | `'horizontal' \| 'vertical'` | Vertical rotates 90° CW |
+| `x`, `y` | `number` | Position as percentage (0–100) of canvas width/height |
+| `shadow` | `object` | `{ enabled, color, blur, offsetX, offsetY }` |
+
+<Note>
+  Percentage-based positioning means an overlay placed at `x: 50, y: 10` will always appear centered horizontally, 10% from the top — regardless of whether you're on a 1:1 square or 16:9 widescreen canvas.
+</Note>
+
+## Image Overlays
+
+Image overlays are decorative elements layered over the canvas — icons, stickers, illustrations, brand marks, or any other graphic element.
+
+<CardGroup cols={2}>
+  <Card title="Gallery Overlays" icon="images">
+    Browse a built-in gallery of decorative overlays served from Cloudflare R2. Categories include abstract shapes, gradients, patterns, and UI elements.
+  </Card>
+  <Card title="Custom Uploads" icon="upload">
+    Upload any image file (PNG, JPG, WebP, SVG) as a custom overlay. Uploaded overlays are stored in IndexedDB alongside your other project assets.
+  </Card>
+</CardGroup>
+
+### Transform Controls
+
+Each image overlay exposes the following controls:
+
+| Control | Description |
+|---------|-------------|
+| **Position (X / Y)** | Drag or use numeric inputs. Stored as canvas-relative percentages. |
+| **Size (W / H)** | Width and height in pixels at 1× scale. Aspect ratio lock is available. |
+| **Rotation** | –180° to 180° rotation around the overlay's center point. |
+| **Flip Horizontal / Vertical** | Mirror the overlay along either axis. |
+| **Opacity** | 0–100% transparency control. Useful for watermark-style placements. |
+| **Visibility** | Toggle an overlay off without deleting it — handy for A/B comparisons. |
+
+## Tweet Import
+
+Betterflow can fetch a tweet by its numeric ID and render it as a beautifully styled card overlay:
+
+<Steps>
+  <Step title="Enter Tweet ID">
+    Paste the tweet URL or just the numeric ID into the Tweet import field (e.g. `1234567890123456789`).
+  </Step>
+  <Step title="Fetch & Render">
+    Betterflow fetches the tweet metadata and renders it as a styled card — avatar, handle, content, timestamp, and engagement metrics — matching the visual language of the native Twitter/X UI.
+  </Step>
+  <Step title="Position the Card">
+    The tweet card behaves like any other image overlay: drag to reposition, resize, rotate, and adjust opacity as needed.
+  </Step>
+</Steps>
+
+## Code Snippet Import
+
+Share code in style with the built-in code snippet tool:
+
+- Paste any code into the snippet editor and choose a programming language
+- Syntax highlighting is applied automatically using a token-aware renderer
+- The rendered snippet is converted to an image and placed as an overlay on the canvas
+- Font, theme (light/dark), and padding are configurable before import
+
+<Tip>
+  Code snippet images render at a high pixel density. Export at 2× or higher to keep the text in code overlays crisp and readable.
+</Tip>
+
+## Overlay Compositing During Export
+
+During export, overlays are captured in a dedicated pass and composited as the topmost layer:
+
+```
+Export Pipeline
+  1. Background layer    ← domToCanvas (CSS background, blur, noise)
+  2. User image layer    ← Konva stage export
+  3. Overlay layer       ← domToCanvas (text + image overlays)
+  4. Composite all layers on a single canvas
+  5. Process through Sharp (quality, format)
+  6. Download + save to IndexedDB
+```
+
+The overlay capture creates a temporary DOM container, renders all active text overlays (including font loading) and image overlays into it, then captures the result with `domToCanvas`. This approach ensures font rendering, text shadows, blend modes, and rotation are all faithfully reproduced — including features that the Konva canvas engine doesn't natively support.

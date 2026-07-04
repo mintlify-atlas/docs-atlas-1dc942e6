@@ -1,0 +1,153 @@
+---
+title: "Deploying Betterflow to Vercel or Docker"
+sidebarTitle: "Deployment"
+description: "Step-by-step instructions for deploying Betterflow to Vercel (recommended) or Docker, including build settings and a production readiness checklist."
+---
+
+Betterflow is a standard Next.js 16 application and can be deployed to any platform that supports
+Node.js. **Vercel** is the recommended target because it has native Next.js support — serverless
+functions, edge caching, and environment variable management are all handled out of the box with
+zero extra configuration. A **Docker** path is also supported for teams that need a self-hosted or
+containerized deployment.
+
+---
+
+## Vercel (Recommended)
+
+Vercel detects Next.js projects automatically and applies optimal defaults for the App Router,
+server components, and API routes. No additional `vercel.json` configuration is needed beyond
+what ships in the repository.
+
+<Steps>
+  <Step title="Push your code to GitHub">
+    Make sure the Betterflow repository (or your fork) is pushed to a GitHub, GitLab, or Bitbucket
+    account that Vercel can access.
+
+    ```bash
+    git add .
+    git commit -m "chore: initial betterflow setup"
+    git push origin main
+    ```
+  </Step>
+
+  <Step title="Import the project in the Vercel dashboard">
+    Log in to [vercel.com](https://vercel.com), click **Add New → Project**, and select your
+    repository from the list. Vercel will automatically detect the Next.js framework.
+  </Step>
+
+  <Step title="Confirm build settings">
+    Vercel auto-detects all three settings below. Verify they match before continuing:
+
+    | Setting | Value |
+    |---|---|
+    | Framework Preset | **Next.js** |
+    | Build Command | `pnpm run build` |
+    | Output Directory | `.next` |
+
+    <Note>
+      The repository uses `pnpm`. If Vercel does not detect it automatically, set the **Install
+      Command** to `pnpm install` in the project settings.
+    </Note>
+  </Step>
+
+  <Step title="Set environment variables">
+    In the **Environment Variables** section of the import screen (or later under **Settings →
+    Environment Variables**), add every variable your deployment needs. At minimum:
+
+    ```env
+    NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+    ```
+
+    If you have R2 configured, add the full set:
+
+    ```env
+    NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev
+    NEXT_PUBLIC_R2_CUSTOM_DOMAIN=assets.yourdomain.com
+    NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com
+    R2_ACCESS_KEY_ID=your_r2_access_key_id
+    R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+    R2_BUCKET_NAME=betterflow-storage
+    CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+    R2_API_TOKEN=your_r2_api_token
+    ```
+
+    See the [Environment Variable Reference](/configuration/environment-variables) for the
+    complete list including optional analytics and social link variables.
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy**. Vercel will install dependencies with `pnpm`, run `pnpm run build`, and
+    publish the result. Subsequent pushes to the `main` branch trigger automatic redeployments.
+
+    Once the deploy finishes, open the assigned `.vercel.app` URL (or your custom domain) to
+    confirm the editor loads correctly.
+  </Step>
+</Steps>
+
+### Function Timeouts
+
+The `vercel.json` in the repository configures a **10-second max duration** and **1 024 MB memory**
+for the screenshot API route (`app/api/screenshot/route.ts`), which calls an external screenshot
+service:
+
+```json
+{
+  "functions": {
+    "app/api/screenshot/route.ts": {
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  }
+}
+```
+
+All other API routes (upload-url, upload-video, image-proxy, export) run at Vercel's default
+timeout. If you extend any route with long-running work, add it to `vercel.json` with an
+appropriate `maxDuration` value.
+
+---
+
+## Docker
+
+Betterflow supports containerized deployment for self-hosted environments. Build the production
+image from the repository root using the standard Next.js standalone output:
+
+```bash
+# Build the Docker image
+docker build -t betterflow .
+
+# Run the container, injecting environment variables
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_SITE_URL=https://yourdomain.com \
+  -e R2_ACCESS_KEY_ID=your_key \
+  -e R2_SECRET_ACCESS_KEY=your_secret \
+  -e R2_BUCKET_NAME=betterflow-storage \
+  -e CLOUDFLARE_ACCOUNT_ID=your_account_id \
+  -e R2_API_TOKEN=your_token \
+  -e NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-xxxx.r2.dev \
+  -e NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com \
+  betterflow
+```
+
+<Tip>
+  For production Docker deployments pass environment variables via a `.env` file or your
+  orchestration platform's secrets manager (e.g. Kubernetes Secrets, AWS ECS task definitions)
+  rather than inline `docker run` flags.
+</Tip>
+
+---
+
+## Production Checklist
+
+Before directing real traffic to your deployment, confirm the following:
+
+<Note>
+  **Required before going live:**
+
+  - ✅ `NEXT_PUBLIC_SITE_URL` is set to your production domain (not `localhost`).
+  - ✅ All eight Cloudflare R2 variables are set if you want the background gallery and Chrome
+    extension uploads to work.
+  - ✅ R2 bucket CORS policy allows your production origin.
+  - ✅ `NEXT_PUBLIC_POSTHOG_KEY` is set (or intentionally left blank to disable analytics).
+  - ✅ Build completes without errors (`pnpm run build` locally before pushing).
+</Note>

@@ -1,0 +1,418 @@
+---
+title: "Betterflow Architecture and Code Structure"
+sidebarTitle: "Architecture"
+description: "A deep-dive into Betterflow's hybrid canvas rendering model, dual-store state management, export pipeline, animation engine, and browser storage strategy."
+---
+
+Betterflow is a browser-only screenshot editor built on Next.js 16 with the App Router. Its architecture centres on a **hybrid rendering model**: CSS and HTML handle backgrounds and overlays (captured with `html2canvas`), while React-Konva drives the precise user-image layer. Two coordinated Zustand stores keep UI controls and the canvas renderer in lockstep, and a multi-encoder export pipeline lets users produce PNG, JPG, MP4, WebM, and GIF entirely client-side.
+
+## Project Structure
+
+The repository follows a feature-grouped layout. Top-level directories map cleanly to concerns:
+
+```text
+better-flow/
+├── app/                          # Next.js App Router pages
+│   ├── api/
+│   │   ├── cleanup-cache/        # Cache cleanup endpoint
+│   │   ├── export/               # Server-side image export (FFmpeg)
+│   │   ├── image-proxy/          # R2 image proxy (CORS bypass)
+│   │   ├── upload-url/           # R2 presigned URL generation
+│   │   └── upload-video/         # Chrome extension video upload
+│   ├── editor/                   # Main editor page
+│   ├── layout.tsx                # Root layout
+│   ├── page.tsx                  # Landing page
+│   └── globals.css               # Global styles + CSS theme tokens
+│
+├── components/
+│   ├── canvas/                   # Canvas rendering components
+│   │   ├── ClientCanvas.tsx      # Main Konva canvas renderer (client-only)
+│   │   ├── CanvasContext.tsx      # Context provider for canvas operations
+│   │   └── EditorCanvas.tsx      # Wrapper: shows upload UI or canvas
+│   ├── controls/                 # Editor control panels (border, shadow, 3D…)
+│   ├── editor/                   # Layout: panels, header, sections
+│   ├── export/                   # Export dialogs and progress UI
+│   ├── overlays/                 # Image/sticker overlay management
+│   ├── text-overlay/             # Text layer controls
+│   ├── timeline/                 # Animation timeline, tracks, playback
+│   ├── templates/                # Template system
+│   ├── landing/                  # Landing page sections
+│   └── ui/                       # Shared Radix-based UI primitives
+│
+├── lib/
+│   ├── store/
+│   │   └── index.ts              # useImageStore & useEditorStore
+│   ├── animation/
+│   │   ├── interpolation.ts      # Keyframe interpolation & easing functions
+│   │   └── presets.ts            # 20+ named animation presets
+│   ├── export/
+│   │   ├── export-service.ts     # Image export (compositing pipeline)
+│   │   ├── export-slideshow-video.ts  # Video export orchestrator
+│   │   ├── ffmpeg-encoder.ts     # FFmpeg WASM H.264/GIF encoder
+│   │   ├── webcodecs-encoder.ts  # WebCodecs H.264 + mp4-muxer
+│   │   ├── video-encoder.ts      # MediaRecorder WebM wrapper
+│   │   └── export-utils.ts       # Shared helpers
+│   ├── constants/                # Backgrounds, presets, fonts, colors
+│   ├── canvas/                   # Canvas utility helpers
+│   ├── image-storage.ts          # localStorage image persistence
+│   └── export-storage.ts         # Export preferences persistence
+│
+├── hooks/                        # Custom React hooks
+│   ├── useExport.ts
+│   ├── useCanvas.ts
+│   └── useAspectRatioDimensions.ts
+│
+├── types/                        # TypeScript type definitions
+│   ├── canvas.ts
+│   ├── editor.ts
+│   └── animation.ts              # Keyframe, AnimationTrack, TimelineState…
+│
+└── public/
+    ├── assets/                   # Demo images
+    ├── overlays/                 # Overlay images
+    └── backgrounds/              # Background images
+```
+
+## State Management
+
+Betterflow uses a **dual-store pattern** with [Zustand](https://zustand.docs.pmnd.rs/). The two stores have clearly separated responsibilities and are kept in sync by a dedicated component.
+
+### `useImageStore` — main design state
+
+`useImageStore` is the source of truth for everything the user configures. It wraps Zustand's `temporal` middleware from [Zundo](https://github.com/charkour/zundo) to provide undo/redo support.
+
+It manages:
+
+- Uploaded image URL and metadata
+- Background configuration (`type`, `value`, `opacity`)
+- Text overlays array (`TextOverlay[]`)
+- Image overlays array (`ImageOverlay[]`)
+- Annotation shapes and blur regions
+- Image transformations: `imageScale`, `imageOpacity`, `borderRadius`
+- `imageBorder` configuration (frame type, width, color, padding, title)
+- `imageShadow` configuration (blur, offset, spread, color)
+- 3D perspective transforms (`perspective3D`)
+- Aspect ratio selection
+- **Timeline state**: `duration`, `playhead`, `isPlaying`, `isLooping`, `tracks`, `zoom`
+- **Animation clips**: preset-based clips with `startTime`, `duration`, color
+- **Slides**: multi-image slideshow support
+
+### `useEditorStore` — canvas rendering state
+
+`useEditorStore` holds derived/runtime values that the Konva canvas (`ClientCanvas`) needs to render efficiently without re-running complex calculations on every frame:
+
+- `screenshot` — `{ src, scale, offsetX, offsetY, rotation, radius }`
+- `background` — `{ mode, colorA, colorB, gradientDirection }` (parsed from image store's gradient string)
+- `shadow` — `{ enabled, elevation, side, softness, spread, color, intensity, offsetX, offsetY }`
+- `pattern` — `{ enabled, type, scale, spacing, color, rotation, blur, opacity }`
+- `frame` — `{ enabled, type, width, color, padding, title, opacity }`
+- `canvas` — `{ aspectRatio, padding }`
+- `noise` — `{ enabled, type, opacity }`
+
+### `EditorStoreSync` — keeping stores in sync
+
+The `useEditorStoreSync` hook (rendered once at the editor root as `EditorStoreSync`) uses `React.useEffect` to propagate changes from `useImageStore` into `useEditorStore`. This one-directional sync keeps the Konva renderer decoupled from the full design state while still reacting to user changes:
+
+```typescript
+// lib/store/index.ts (simplified)
+export function useEditorStoreSync() {
+  const imageStore = useImageStore();
+  const editorStore = useEditorStore();
+
+  React.useEffect(() => {
+    // Sync uploaded image URL → Konva screenshot source
+    if (imageStore.uploadedImageUrl !== editorStore.screenshot.src) {
+      editorStore.setScreenshot({ src: imageStore.uploadedImageUrl });
+    }
+
+    // Parse gradient string → extract colorA, colorB, direction
+    if (bgConfig.type === 'gradient') {
+      const { colorA, colorB, direction } = parseGradientColors(gradientStr);
+      editorStore.setBackground({ mode: 'gradient', colorA, colorB, gradientDirection: direction });
+    }
+
+    // Mirror imageBorder → frame, imageShadow → shadow …
+  });
+}
+```
+
+## Canvas Rendering Architecture
+
+The editor canvas uses a three-layer hybrid rendering strategy:
+
+```text
+┌─────────────────────────────────────┐
+│  3 · Overlay Layer (html2canvas)    │  ← text & image overlays composited on top
+├─────────────────────────────────────┤
+│  2 · User Image Layer (Konva Stage) │  ← precise image transform, shadow, border
+├─────────────────────────────────────┤
+│  1 · Background Layer (HTML / CSS)  │  ← gradient, solid, image bg → html2canvas
+└─────────────────────────────────────┘
+```
+
+<Tabs>
+  <Tab title="Background Layer">
+    The background is a plain HTML `div` styled with Tailwind and CSS theme variables. It receives gradients, solid colors, or `url()` image values from `getBackgroundCSS()` in `lib/constants/backgrounds.ts`.
+
+    During export, the background div is cloned, blur and noise effects are applied, then `html2canvas` converts it to a canvas bitmap. This approach preserves full CSS fidelity — including multi-stop gradients and `backdrop-filter` — with no custom rendering code.
+  </Tab>
+
+  <Tab title="User Image Layer">
+    The uploaded image and its transforms (scale, rotation, border radius, shadow) are rendered by a React-Konva `Stage`. Konva's retained-mode canvas gives pixel-accurate control over the image position and supports `batchDraw()` to minimise unnecessary redraws.
+
+    When a 3D perspective transform is active, `modern-screenshot` (`domToCanvas`) replaces `html2canvas` for that layer because it correctly handles CSS `perspective` and `rotateX`/`rotateY` transforms that `html2canvas` cannot capture.
+  </Tab>
+
+  <Tab title="Overlay Layer">
+    Text and image overlays are React components positioned absolutely over the canvas. At export time, a temporary off-screen DOM container is created, the overlays are rendered into it with the correct font faces loaded, and `html2canvas` captures them to a transparent bitmap that is then composited on top of the other two layers.
+  </Tab>
+</Tabs>
+
+**Why the hybrid approach?** Pure CSS gives the best fidelity for backgrounds (gradients, blur, noise, blend modes). Konva gives sub-pixel precision for image positioning and transforms. Keeping overlays as real DOM elements means full font and emoji rendering without re-implementing a text layout engine in canvas.
+
+## Export Pipeline
+
+Image export follows a deterministic multi-step compositing pipeline implemented in `lib/export/export-service.ts`:
+
+<Steps>
+  <Step title="Export Background (html2canvas)">
+    Clone the background element, apply CSS blur and noise overlay, then call `html2canvas` to produce a full-resolution background bitmap.
+  </Step>
+
+  <Step title="Export Konva Stage (user image)">
+    Hide the background layer, export the Konva stage at a high pixel ratio, then scale the resulting bitmap to the final export dimensions.
+  </Step>
+
+  <Step title="Export Overlays (html2canvas)">
+    Create a temporary off-screen DOM container, render all text overlays (with fonts loaded) and image overlays into it, then capture with `html2canvas` to a transparent bitmap.
+  </Step>
+
+  <Step title="Composite Layers">
+    Draw each layer onto a single output canvas in z-order:
+    1. Background (bottom)
+    2. User image (middle)
+    3. Overlays (top)
+  </Step>
+
+  <Step title="Add Watermark">
+    Optionally stamp the Betterflow watermark onto the composited canvas.
+  </Step>
+
+  <Step title="Convert to Blob / DataURL">
+    Call `canvas.toBlob()` with the chosen format and quality settings, then trigger the browser download and save preferences to `localStorage`.
+  </Step>
+</Steps>
+
+## Data Flow Diagrams
+
+### Upload flow
+
+<Steps>
+  <Step title="User drops or picks a file">
+    `react-dropzone` in `UploadDropzone.tsx` validates file type and size.
+  </Step>
+  <Step title="Blob URL created">
+    `URL.createObjectURL(file)` produces an immediate preview URL.
+  </Step>
+  <Step title="useImageStore updated">
+    `setUploadedImageUrl(blobUrl)` stores the URL in the main design store.
+  </Step>
+  <Step title="EditorStoreSync propagates the change">
+    The sync hook detects the new URL and calls `editorStore.setScreenshot({ src: blobUrl })`.
+  </Step>
+  <Step title="ClientCanvas re-renders">
+    The Konva `Image` node loads from the new `src` and the canvas refreshes.
+  </Step>
+  <Step title="Persisted to localStorage">
+    For images under 500 KB, `saveImageBlob()` in `lib/image-storage.ts` serialises the blob to base64 under the key `betterflow-img-<id>`.
+  </Step>
+</Steps>
+
+### Export flow
+
+<Steps>
+  <Step title="User clicks Export">
+    The export dialog calls the `useExport` hook.
+  </Step>
+  <Step title="Konva stage reference acquired">
+    The hook reads the stage ref from `CanvasContext`.
+  </Step>
+  <Step title="exportElement() called">
+    All current state (background config, overlays, watermark flag, scale) is passed in.
+  </Step>
+  <Step title="Pipeline runs (steps 1–6 above)">
+    Background → Konva stage → overlays → composite → watermark → blob.
+  </Step>
+  <Step title="File downloaded">
+    `URL.createObjectURL(blob)` triggers a programmatic `<a>` click.
+  </Step>
+  <Step title="Preferences saved">
+    `saveExportPreferences()` persists `format`, `qualityPreset`, and `scale` to `localStorage` under `betterflow-export-preferences`.
+  </Step>
+</Steps>
+
+### State update flow
+
+<Steps>
+  <Step title="User adjusts a control">
+    e.g. drags the border-width slider in `BorderControls.tsx`.
+  </Step>
+  <Step title="Control calls store setter">
+    `setImageBorder({ width: newValue })` is dispatched to `useImageStore`.
+  </Step>
+  <Step title="Zustand store updates">
+    Zundo records the previous state for undo support, then the store updates.
+  </Step>
+  <Step title="Subscribed components re-render">
+    Any component that reads `imageBorder` from the store re-renders automatically.
+  </Step>
+  <Step title="EditorStoreSync mirrors the change">
+    The sync hook propagates the updated border config to `useEditorStore.frame`.
+  </Step>
+  <Step title="ClientCanvas re-renders">
+    The Konva stage picks up the new frame configuration and redraws.
+  </Step>
+</Steps>
+
+## Animation Engine
+
+The animation engine lives in `lib/animation/` and drives both the timeline preview and video frame generation.
+
+### Interpolation (`lib/animation/interpolation.ts`)
+
+| Function | Purpose |
+|---|---|
+| `findSurroundingKeyframes(keyframes, time)` | Locate the previous and next keyframes around a given timestamp |
+| `getInterpolatedProperty(track, time, key, default)` | Interpolate a single property from a track at `time` |
+| `getInterpolatedProperties(tracks, time)` | Interpolate all properties across all tracks (single-clip, legacy) |
+| `getClipInterpolatedProperties(clips, tracks, time)` | Multi-clip aware interpolation — later clips override earlier ones for the same property |
+| `getClipLocalInterpolatedProperties(clipTracks, localTime, ...)` | Handle stretched / compressed clips by scaling time internally |
+| `clonePresetTracks(preset, options)` | Deep-clone preset tracks with fresh unique IDs for timeline placement |
+
+### Easing functions
+
+All eight easing functions take a normalised progress value `t ∈ [0, 1]` and return an eased value in the same range:
+
+```typescript
+// lib/animation/interpolation.ts
+export const easingFunctions: Record<EasingFunction, (t: number) => number> = {
+  linear:         (t) => t,
+  'ease-in':      (t) => t * t,
+  'ease-out':     (t) => 1 - (1 - t) * (1 - t),
+  'ease-in-out':  (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  'ease-in-cubic':  (t) => t * t * t,
+  'ease-out-cubic': (t) => 1 - Math.pow(1 - t, 3),
+  'ease-in-expo':   (t) => t === 0 ? 0 : Math.pow(2, 10 * t - 10),
+  'ease-out-expo':  (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t),
+};
+```
+
+### Timeline state
+
+Timeline state is stored inside `useImageStore` as a `TimelineState` slice:
+
+```typescript
+// types/animation.ts
+interface TimelineState {
+  duration: number;       // total timeline length in ms
+  playhead: number;       // current position in ms
+  isPlaying: boolean;
+  isLooping: boolean;
+  tracks: AnimationTrack[];
+  zoom: number;
+  snapToKeyframes: boolean;
+}
+```
+
+The `useTimelinePlayback` hook in `components/timeline/hooks/` drives the animation loop via `requestAnimationFrame`, reads `getClipInterpolatedProperties()` on every tick, and writes the results back into `useImageStore` as `perspective3D` and `imageOpacity`.
+
+### Animatable properties
+
+`perspective`, `rotateX`, `rotateY`, `rotateZ`, `translateX`, `translateY`, `scale`, `imageOpacity`
+
+## Video Export Encoder Selection
+
+The export orchestrator in `lib/export/export-slideshow-video.ts` selects an encoder based on the requested format and browser capability:
+
+```text
+Requested format
+       │
+       ├── GIF ──────────────────────────────→ FFmpeg WASM
+       │                                        (ffmpeg-encoder.ts)
+       │
+       ├── WebM ─────────────────────────────→ MediaRecorder
+       │                                        (video-encoder.ts)
+       │
+       └── MP4 ──── WebCodecs available? ──Yes→ WebCodecs + mp4-muxer
+                           │                    (webcodecs-encoder.ts)
+                           No
+                           │
+                           └──────────────────→ FFmpeg WASM fallback
+                                               (ffmpeg-encoder.ts)
+```
+
+<Note>
+  FFmpeg uses JPEG frames for intermediate processing (approximately 5× faster than PNG). The WASM binary is cached via the browser's Cache API so it is only downloaded once across sessions.
+</Note>
+
+### Quality presets
+
+| Preset | Bitrate | CRF |
+|---|---|---|
+| High | 25 Mbps | 18 |
+| Medium | 10 Mbps | 23 |
+| Low | 5 Mbps | 28 |
+
+### Encoder summary
+
+| Encoder | File | Best for |
+|---|---|---|
+| FFmpeg WASM | `ffmpeg-encoder.ts` | H.264 and GIF; uses `SharedArrayBuffer` for multi-threading |
+| WebCodecs | `webcodecs-encoder.ts` | Hardware-accelerated H.264 via browser GPU; muxed with `mp4-muxer` |
+| MediaRecorder | `video-encoder.ts` | Native WebM recording; zero additional dependencies |
+
+## Browser Storage
+
+Betterflow stores data across two mechanisms — IndexedDB for larger structured data and `localStorage` for small preferences.
+
+### IndexedDB
+
+| Database | Store | Key | Value |
+|---|---|---|---|
+| `betterflow-db` | `drafts` | `'betterflow-draft'` | Full `EditorState` + `ImageState` snapshot with timestamp |
+
+The `draft-storage.ts` module manages a singleton `IDBDatabase` connection with automatic reconnect on unexpected close. Drafts older than 7 days and exceeding 50 MB are cleaned up automatically.
+
+### LocalStorage
+
+| Key | Contents |
+|---|---|
+| `betterflow-img-<id>` | Base64-encoded image blob (≤ 500 KB; larger images are blob-URL only) |
+| `betterflow-export-preferences` | `{ format, qualityPreset, scale }` JSON object |
+| `betterflow_local_<key>` | Generic key-value store used by `storageService` for unauthenticated users |
+
+<Tip>
+  Images larger than 500 KB are not persisted to `localStorage` to avoid quota errors. They exist only as ephemeral blob URLs for the current session.
+</Tip>
+
+## Tech Stack Summary
+
+| Category | Library | Version | Role |
+|---|---|---|---|
+| Framework | Next.js | 16.x | App Router, API routes, SSR |
+| UI | React | 19.x | Component model; React Compiler enabled |
+| Language | TypeScript | 5.9 | Full static typing |
+| Styling | Tailwind CSS | 4.x | Utility-first CSS with CSS theme variables |
+| UI Primitives | Radix UI | various | Accessible, unstyled component base |
+| Canvas | Konva / React-Konva | 10.x / 19.x | 2D canvas rendering for user images |
+| DOM Capture | html2canvas | 1.4 | Background and overlay layer export |
+| 3D Capture | modern-screenshot | 4.7 | CSS perspective transform capture |
+| State | Zustand | 5.x | Lightweight stores with selector subscriptions |
+| Undo/Redo | Zundo | 2.x | Temporal middleware wrapping `useImageStore` |
+| Video — WASM | FFmpeg (`@ffmpeg/ffmpeg`) | 0.12 | H.264 and GIF encoding in-browser |
+| Video — Native | WebCodecs + mp4-muxer | — | Hardware H.264; `mp4-muxer` 5.x for muxing |
+| Video — Fallback | MediaRecorder | Browser API | Native WebM recording |
+| Storage | Cloudflare R2 | — | Object storage for backgrounds and assets |
+| Local Storage | IndexedDB | Browser API | Draft auto-save via `betterflow-db` |
+| Icons | Hugeicons | 1.x | Icon library |
+| Animation UI | Framer Motion / GSAP | 12.x / 3.x | Landing page and UI micro-animations |

@@ -1,0 +1,127 @@
+---
+title: "POST /api/screenshot — Capture Website Screenshots"
+sidebarTitle: "POST /screenshot"
+description: "Capture a website screenshot with Playwright and Chromium, with R2-backed caching, per-IP rate limiting, and desktop or mobile viewport size options."
+---
+
+The `/api/screenshot` route launches a headless Chromium browser via [Playwright](https://playwright.dev/) and captures a viewport screenshot of any public `http` or `https` URL. The resulting PNG is returned as a Base64-encoded string and optionally cached in Cloudflare R2 for up to **7 days** so repeated requests for the same URL and device type are served instantly without re-launching the browser.
+
+This endpoint powers the **"Import from URL"** feature in the Betterflow editor, allowing users to screenshot any website and immediately use it as a canvas background.
+
+## Endpoint
+
+| Property | Value |
+|---|---|
+| **Method** | `POST` |
+| **Path** | `/api/screenshot` |
+| **Content-Type** | `application/json` |
+
+The route has a `maxDuration` of **60 seconds** (configured in `vercel.json`) to accommodate slow websites and Playwright startup time on cold starts. Memory is set to 1024 MB.
+
+## Request Body
+
+<ParamField body="url" type="string" required>
+  The full URL of the website to screenshot. Must use the `http` or `https` protocol. The URL is normalized (trailing slashes and fragments removed) before being used as a cache key.
+</ParamField>
+
+<ParamField body="deviceType" type="string">
+  Viewport size for the screenshot. Accepted values:
+  - `"desktop"` (default) — 1920 × 1080 px
+  - `"mobile"` — 375 × 667 px
+
+  Screenshots are cached independently per device type, so a desktop and mobile capture of the same URL can coexist in the cache simultaneously.
+</ParamField>
+
+<ParamField body="forceRefresh" type="boolean">
+  When `true`, the existing cached screenshot for this URL and device type is invalidated before capturing a new one. Defaults to `false`.
+</ParamField>
+
+## Response Body
+
+<ResponseField name="screenshot" type="string">
+  The captured screenshot as a Base64-encoded PNG string. Decode and render this directly in an `<img>` tag or pass it to the canvas loader.
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  The normalized URL that was screenshotted (trailing slashes and fragments stripped, lowercased).
+</ResponseField>
+
+<ResponseField name="cached" type="boolean">
+  `true` if the response was served from the R2 cache. `false` if a fresh Playwright capture was performed.
+</ResponseField>
+
+<ResponseField name="strategy" type="string">
+  The capture method used. Will be `"playwright-chromium"` for a live capture. Absent when `cached` is `true`.
+</ResponseField>
+
+<ResponseField name="deviceType" type="string">
+  The device type used for this capture: `"desktop"` or `"mobile"`.
+</ResponseField>
+
+## Example
+
+### Desktop screenshot
+
+```bash
+curl -X POST https://your-instance.com/api/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "deviceType": "desktop"
+  }'
+```
+
+```json
+{
+  "screenshot": "iVBORw0KGgoAAAANSUhEUgAAB...",
+  "url": "https://example.com",
+  "cached": false,
+  "strategy": "playwright-chromium",
+  "deviceType": "desktop"
+}
+```
+
+### Mobile screenshot, force-refreshed
+
+```bash
+curl -X POST https://your-instance.com/api/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "deviceType": "mobile",
+    "forceRefresh": true
+  }'
+```
+
+## Caching
+
+Screenshots are stored in Cloudflare R2 under the `screenshots/` prefix using a Base64url-encoded URL hash as the filename, keyed by device type (e.g. `screenshots/<url-hash>:desktop.png`). The cache TTL is **7 days**. Cache reads and writes are best-effort — a cache failure never prevents a fresh capture from being attempted or returned.
+
+If R2 is not configured (the `MY_BUCKET` binding is absent), caching is silently disabled and every request triggers a live Playwright capture.
+
+## Rate Limiting
+
+Requests are rate-limited per IP address. If the limit is exceeded, the route returns `429 Too Many Requests` with a `Retry-After` header indicating when the limit resets.
+
+## Browser Setup
+
+The route tries two strategies to launch Chromium, in order:
+
+1. **Local Playwright** — uses a locally installed Chromium binary (installed via `npx playwright install chromium`). Preferred for self-hosted deployments.
+2. **`@sparticuz/chromium`** — a serverless-compatible Chromium binary for Vercel and AWS Lambda environments. Used automatically on Vercel if the local binary is not available.
+
+<Warning>
+  If neither Playwright nor `@sparticuz/chromium` is available, the route returns `503 Service Unavailable` with instructions to install the browser binaries. When self-hosting, run `npx playwright install chromium` after `npm install`.
+</Warning>
+
+## Error Responses
+
+| Status | Description |
+|---|---|
+| `400 Bad Request` | `url` is missing, not a string, uses a non-`http`/`https` protocol, or is an invalid URL format. |
+| `400 Bad Request` | The target website returned a network error (DNS failure, connection refused, SSL issues). |
+| `400 Bad Request` | `deviceType` is provided but is not `"desktop"` or `"mobile"`. |
+| `408 Request Timeout` | The target website took longer than 55 seconds to reach a `networkidle` state. |
+| `429 Too Many Requests` | IP-based rate limit exceeded. Includes `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers. |
+| `503 Service Unavailable` | Playwright/Chromium binaries are not installed. |
+| `500 Internal Server Error` | An unexpected error occurred during capture. |

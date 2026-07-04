@@ -1,0 +1,256 @@
+---
+title: "Animations: Keyframe Timeline with 35+ Motion Presets"
+sidebarTitle: "Animations"
+description: "Animate screenshots with a professional keyframe timeline, 35+ motion presets across 8 categories, 8 easing functions, and multi-slide looping support."
+---
+
+Betterflow's animation system transforms static screenshots into polished motion graphics. A built-in keyframe timeline lets you scrub through time, apply preset animations from a gallery, and preview playback in real time — all before exporting to MP4, WebM, or GIF. The engine follows Emil Kowalski's animation principles: snappy entrances, ease-out defaults, and minimum scale values that prevent jarring scale-from-zero effects.
+
+## Animation Architecture
+
+The animation system is built on three layers:
+
+<CardGroup cols={3}>
+  <Card title="Interpolation Engine" icon="wand-magic-sparkles">
+    `lib/animation/interpolation.ts` handles keyframe lookup, easing application, and linear interpolation (`lerp`) between numeric property values.
+  </Card>
+  <Card title="Preset Library" icon="layer-group">
+    `lib/animation/presets.ts` defines 35+ named presets as arrays of `AnimationTrack` objects, each containing timed `Keyframe` entries.
+  </Card>
+  <Card title="Timeline UI" icon="timeline">
+    `components/timeline/` provides the visual editor: ruler, playhead, track rows, keyframe markers, playback controls, and the preset gallery.
+  </Card>
+</CardGroup>
+
+## TypeScript Interfaces
+
+The full type system for the animation engine:
+
+```ts
+// From types/animation.ts
+
+export type EasingFunction =
+  | 'linear'
+  | 'ease-in'
+  | 'ease-out'
+  | 'ease-in-out'
+  | 'ease-in-cubic'
+  | 'ease-out-cubic'
+  | 'ease-in-expo'
+  | 'ease-out-expo';
+
+export interface AnimatableProperties {
+  perspective: number;  // CSS perspective distance in px
+  rotateX: number;      // Degrees
+  rotateY: number;      // Degrees
+  rotateZ: number;      // Degrees
+  translateX: number;   // Percentage offset
+  translateY: number;   // Percentage offset
+  scale: number;        // Multiplier (1 = original)
+  imageOpacity: number; // 0–1
+}
+
+export interface Keyframe {
+  id: string;
+  time: number;                          // Milliseconds from start
+  properties: Partial<AnimatableProperties>;
+  easing: EasingFunction;
+}
+
+export interface AnimationTrack {
+  id: string;
+  name: string;
+  type: 'transform' | 'opacity';
+  keyframes: Keyframe[];
+  isLocked: boolean;
+  isVisible: boolean;
+  clipId?: string;           // Links this track to an AnimationClip
+  originalDuration?: number; // Original preset duration for time-scaling
+}
+
+export interface AnimationClip {
+  id: string;
+  presetId: string;
+  name: string;
+  startTime: number; // ms
+  duration: number;  // ms
+  color: string;     // Clip color for timeline display
+}
+
+export interface TimelineState {
+  duration: number;        // Total timeline duration in ms
+  playhead: number;        // Current position in ms
+  isPlaying: boolean;
+  isLooping: boolean;
+  tracks: AnimationTrack[];
+  zoom: number;            // Timeline zoom level (1 = 100%)
+  snapToKeyframes: boolean;
+}
+```
+
+## Easing Functions
+
+Eight easing functions control how property values accelerate and decelerate between keyframes:
+
+| Function | Formula | Best For |
+|----------|---------|----------|
+| `linear` | `t` | Mechanical motion, turntables |
+| `ease-in` | `t²` | Exits, elements leaving the screen |
+| `ease-out` | `1 − (1−t)²` | **Default for entrances** — feels natural |
+| `ease-in-out` | Quadratic S-curve | On-screen movement, ambient loops |
+| `ease-in-cubic` | `t³` | Faster acceleration than quadratic |
+| `ease-out-cubic` | `1 − (1−t)³` | **Snappier entrances** — used by most presets |
+| `ease-in-expo` | `2^(10t−10)` | Explosive exits |
+| `ease-out-expo` | `1 − 2^(−10t)` | Very snappy, dramatic entrances |
+
+```ts
+// From lib/animation/interpolation.ts
+export const easingFunctions: Record<EasingFunction, (t: number) => number> = {
+  linear: (t) => t,
+  'ease-in': (t) => t * t,
+  'ease-out': (t) => 1 - (1 - t) * (1 - t),
+  'ease-in-out': (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  'ease-in-cubic': (t) => t * t * t,
+  'ease-out-cubic': (t) => 1 - Math.pow(1 - t, 3),
+  'ease-in-expo': (t) => t === 0 ? 0 : Math.pow(2, 10 * t - 10),
+  'ease-out-expo': (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t),
+};
+```
+
+## Preset Gallery
+
+35+ presets are organized into 8 categories. Apply any preset from the `AnimationPresetGallery` component — it clones the preset's tracks with fresh IDs and places them on the timeline.
+
+<Tabs>
+  <Tab title="Reveal">
+    3D entrance animations that land the screenshot into its final resting position.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Hero Entrance | 1200ms | `rotateX` 25°→0°, `scale` 0.95→1, fade in at 600ms |
+    | Slide In 3D | 1000ms | `rotateY` 30°→0°, `translateX` 35→0, fade in at 500ms |
+    | Rise & Settle | 1000ms | `translateY` 25→0, `rotateX` –15°→0°, fade in at 500ms |
+    | Drop In | 1000ms | `translateY` –20→0, `rotateX` 12°→0°, fade in at 500ms |
+  </Tab>
+  <Tab title="Slide">
+    Clean directional entrances without 3D rotation — great for UI walkthroughs.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Slide Up | 800ms | `translateY` 30→0, fade in at 400ms |
+    | Slide Down | 800ms | `translateY` –30→0, fade in at 400ms |
+    | Slide Left | 800ms | `translateX` 35→0, fade in at 400ms |
+    | Slide Right | 800ms | `translateX` –35→0, fade in at 400ms |
+  </Tab>
+  <Tab title="Fade">
+    Opacity-led entrances, often combined with subtle scale or translate.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Fade In | 800ms | `imageOpacity` 0→1 |
+    | Fade Scale | 800ms | `scale` 0.96→1, `imageOpacity` 0→1 |
+    | Fade Rise | 800ms | `translateY` 12→0, `scale` 0.98→1, fade |
+    | Fade Zoom Out | 1000ms | `scale` 1.08→1, `imageOpacity` 0→1 |
+  </Tab>
+  <Tab title="Flip">
+    Card-flip rotations around X and Y axes.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Flip X | 1500ms | `rotateX` 0°→90°→180° with scale dip |
+    | Flip Y | 1500ms | `rotateY` 0°→90°→180° with scale dip |
+    | Peek | 2000ms | `rotateY` 0°→35°→0° — peeks and returns |
+    | Flip Reveal | 1200ms | `rotateY` –90°→5°→0°, bounce at 800ms |
+  </Tab>
+  <Tab title="Perspective">
+    Showcase angles that move the camera around the screenshot.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Showcase Tilt | 2500ms | `rotateY` 0°→18°, `rotateX` 0°→6° |
+    | Isometric | 2000ms | `rotateX` 0°→22°, `rotateY` 0°→–22°, `scale` →0.95 |
+    | Hover Float | 3000ms | 4-keyframe oscillation on `rotateX`, `translateY`, `scale` |
+    | Parallax Drift | 3000ms | `translateX` –6→6, `perspective` 2400→1600 |
+    | Apple Showcase | 1500ms | `rotateX` 20°→5°, `rotateY` –15°→–8°, `scale` 0.96→1 |
+  </Tab>
+  <Tab title="Orbit">
+    3D rotational arcs around the Y axis.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Orbit Left | 2500ms | `rotateY` 0°→–25°→0° arc |
+    | Orbit Right | 2500ms | `rotateY` 0°→25°→0° arc |
+    | Turntable | 3000ms | `rotateY` 0°→360° linear |
+    | Swing | 2000ms | Pendulum: `rotateZ` ±8°, `rotateY` ±10° |
+  </Tab>
+  <Tab title="Depth">
+    Z-axis scale and perspective effects.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Push Away | 2000ms | `scale` 1→0.85, `perspective` 2400→1600 |
+    | Pull Close | 1200ms | `scale` 0.95→1.03, `perspective` 1800→2400 |
+    | Dramatic Zoom | 1200ms | `scale` 0.95→1.08, `perspective` 1400→2400, fade |
+    | Breathe 3D | 3000ms | `scale` 1→1.03→1, gentle `rotateX`/`rotateY` loop |
+  </Tab>
+  <Tab title="Ken Burns">
+    Cinematic slow pan-and-zoom effects — classic film-style motion.
+
+    | Preset | Duration | Key Motion |
+    |--------|----------|-----------|
+    | Zoom In | 4000ms | `scale` 1→1.15, slight `translateX`/`translateY` drift |
+    | Zoom Out | 4000ms | `scale` 1.12→1, reverse drift |
+    | Pan Left | 4000ms | `translateX` 8→–8, `scale` 1.05→1.08 |
+    | Pan Right | 4000ms | `translateX` –8→8, `scale` 1.05→1.08 |
+  </Tab>
+</Tabs>
+
+## Timeline Editor
+
+The `TimelineEditor` component provides a complete visual editing environment:
+
+<Steps>
+  <Step title="Playback Controls">
+    The `TimelineControls` component offers **Play / Pause**, **Skip to Start**, **Skip to End**, and a **Loop toggle**. When looping is enabled, the playhead wraps back to the start automatically using modulo math.
+  </Step>
+  <Step title="Timeline Ruler">
+    `TimelineRuler` renders tick marks at regular intervals across the timeline. The zoom level (`TimelineState.zoom`) scales the ruler so short animations can be edited with precision.
+  </Step>
+  <Step title="Keyframe Markers">
+    `KeyframeMarker` components appear at each keyframe position on their parent track. Click a marker to select it; drag it to shift its time. Selected markers show the keyframe's easing and property values.
+  </Step>
+  <Step title="Draggable Playhead">
+    `TimelinePlayhead` is a vertical line you can drag to any point in time. When paused, scrubbing the playhead immediately applies the interpolated properties to the canvas for a live preview.
+  </Step>
+  <Step title="Preset Gallery">
+    `AnimationPresetGallery` shows all presets as thumbnail cards grouped by category. Clicking a preset calls `clonePresetTracks()` to apply it to the timeline with fresh unique IDs.
+  </Step>
+</Steps>
+
+## Playback Engine
+
+The `useTimelinePlayback` hook drives real-time preview via `requestAnimationFrame`:
+
+1. Each frame, it calculates elapsed time since playback started
+2. Calls `getClipInterpolatedProperties(clips, tracks, currentTime)` to get the current property values
+3. Writes the result directly into the Zustand store's `perspective3D` and `imageOpacity` fields
+4. The canvas re-renders synchronously, producing smooth animation at the display's native refresh rate
+
+When multiple clips overlap on the timeline, later-starting clips take precedence over earlier ones for any shared properties — allowing smooth clip-to-clip transitions.
+
+## Multi-Slide Animations & Looping
+
+Betterflow supports **multi-slide presentations** where each slide has its own image and animation. The playback engine handles automatic slide switching based on the playhead position — when the playhead crosses a slide boundary, the canvas swaps to the next slide's image.
+
+<CardGroup cols={2}>
+  <Card title="Loop Mode" icon="repeat">
+    Enable **Loop** in the timeline controls to make the animation cycle indefinitely. The playhead wraps using `playhead % duration`, ensuring seamless looping without gaps.
+  </Card>
+  <Card title="Clip Time-Scaling" icon="clock">
+    Clips can be stretched or compressed on the timeline. `originalDuration` is stored on each track so the interpolation engine can time-scale keyframe positions correctly regardless of the clip's displayed duration.
+  </Card>
+</CardGroup>
+
+<Note>
+  The `snapToKeyframes` option in `TimelineState` causes the playhead to snap to the nearest keyframe when scrubbing within a 50ms threshold. This makes it easy to inspect the exact values at each keyframe without overshooting.
+</Note>

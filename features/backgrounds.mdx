@@ -1,0 +1,127 @@
+---
+title: "Beautiful Backgrounds: 100+ Gradients, Solids & Images"
+sidebarTitle: "Backgrounds"
+description: "Choose from 100+ CSS gradients, mesh gradients, solid colors, and image backgrounds, then layer blur and noise effects on top for a polished finish."
+---
+
+Every great screenshot starts with the right backdrop. Betterflow ships with over 100 handcrafted background options across three distinct types — CSS linear gradients, solid colors, and full-bleed images — each of which can be further refined with blur and noise overlays to create depth and texture without leaving the browser.
+
+## Background Types
+
+<CardGroup cols={3}>
+  <Card title="Gradient" icon="swatchbook">
+    CSS `linear-gradient` presets, mesh gradients, and magic gradients. Over 100 multi-stop color combinations at 135° by default.
+  </Card>
+  <Card title="Solid Color" icon="palette">
+    34 curated solid swatches — from pure white and charcoal through coral, teal, lavender, and beyond — plus raw hex and RGB input.
+  </Card>
+  <Card title="Image" icon="image">
+    Full-bleed photo backgrounds hosted on Cloudflare R2, or upload your own. Images are rendered with `cover` sizing and centered automatically.
+  </Card>
+</CardGroup>
+
+## Gradient Sub-types
+
+Betterflow organizes gradients into three distinct sub-families, all accessed through the same `gradient` type:
+
+<Tabs>
+  <Tab title="CSS Linear">
+    Over 100 smooth two- and three-stop `linear-gradient` definitions shipped in `gradient-colors.ts`. Examples include `vibrant_orange_pink`, `cyan_blue_purple`, `navy_blue`, and `rainbow`. All gradients use a 135° angle for a consistent diagonal direction.
+
+    ```ts
+    // From lib/constants/gradient-colors.ts
+    vibrant_orange_pink:
+      'linear-gradient(135deg, rgb(255, 100, 50) 12.8%, rgb(255, 0, 101) 43.52%, rgb(123, 46, 255) 84.34%)',
+
+    cyan_blue_purple:
+      'linear-gradient(135deg, rgb(0, 255, 229) 12.8%, rgb(75, 108, 255) 43.52%, rgb(156, 31, 217) 84.34%)',
+
+    mint_sky:
+      'linear-gradient(135deg, rgb(132, 250, 176), rgb(143, 211, 244))',
+    ```
+  </Tab>
+  <Tab title="Mesh Gradients">
+    Radial-mesh gradients stored under `mesh:` keys. Select any mesh gradient by prefixing its key with `mesh:` in the `value` field. These produce complex multi-focal color fields that closely resemble Figma's mesh gradient tool.
+  </Tab>
+  <Tab title="Magic Gradients">
+    A curated set of high-drama gradients accessed with the `magic:` key prefix. Magic gradients use wider color ranges and higher saturation for bold, eye-catching hero images.
+  </Tab>
+</Tabs>
+
+## Solid Colors
+
+34 named solid colors are available out of the box, organized in seven logical rows:
+
+| Row | Colors |
+|-----|--------|
+| Neutrals | `white`, `very_light_gray`, `medium_light_gray`, `dark_gray` |
+| Darks | `dark_charcoal`, `darker_charcoal`, `black` |
+| Vivids | `coral_red`, `bright_lime`, `orange`, `bright_yellow` |
+| Greens | `light_olive_green`, `medium_green`, `medium_green_2`, `light_mint_green` |
+| Blues | `medium_blue`, `medium_purple_blue`, `medium_blue_2`, `light_pastel_blue` |
+| Pastels | `light_pastel_pink`, `light_peach`, `light_beige`, `light_lavender` |
+| Purples | `darker_purple`, `bright_fuchsia`, `medium_purple_blue_2`, `light_teal` |
+
+You can also enter any custom `#rrggbb` hex code or `rgb(r, g, b)` value directly — the system detects raw color strings automatically.
+
+## TypeScript Interface
+
+The entire background configuration is described by a single interface:
+
+```ts
+// From lib/constants/backgrounds.ts
+export type BackgroundType = 'gradient' | 'solid' | 'image';
+
+export interface BackgroundConfig {
+  type: BackgroundType;
+  value: GradientKey | SolidColorKey | string;
+  opacity?: number; // 0–1, defaults to 1
+}
+```
+
+`value` accepts a `GradientKey` (e.g. `"vibrant_orange_pink"`), a `SolidColorKey` (e.g. `"dark_charcoal"`), a prefixed mesh/magic key (`"mesh:aurora"`, `"magic:neon"`), a hex/RGB string, or an image URL.
+
+## Style Resolution
+
+Two helper functions translate a `BackgroundConfig` into renderable CSS:
+
+```ts
+// Returns a raw CSS string (background shorthand or color)
+export const getBackgroundStyle = (config: BackgroundConfig): string
+
+// Returns a React.CSSProperties object for inline style application
+export const getBackgroundCSS = (config: BackgroundConfig): React.CSSProperties
+```
+
+`getBackgroundCSS` also handles `backgroundSize: 'cover'`, `backgroundPosition: 'center'`, and `backgroundRepeat: 'no-repeat'` for image backgrounds automatically.
+
+## Blur & Noise Effects
+
+Two optional effects can be layered on top of any background type:
+
+<Steps>
+  <Step title="Background Blur">
+    A CSS `filter: blur(Xpx)` is applied to the background layer independently from the foreground image. Use this to soften busy image backgrounds or create the classic frosted-glass look behind your screenshots.
+  </Step>
+  <Step title="Noise Texture">
+    A semi-transparent noise texture is tiled over the background using `mix-blend-mode: overlay`. The intensity slider controls `globalAlpha` (0 to 1) during compositing. Noise adds tactile grain that photographs and videos well.
+  </Step>
+</Steps>
+
+<Note>
+  Blur and noise are applied as independent layers. You can enable both simultaneously — for example, a blurred gradient with a subtle noise overlay — for a rich, layered result.
+</Note>
+
+## Export Behaviour
+
+When you export an image or video frame, Betterflow captures the background as a separate step using **`modern-screenshot` (`domToCanvas`)** before compositing it with the foreground. This ensures CSS gradients, mesh backgrounds, blur filters, and noise overlays all render at full fidelity in the final export regardless of browser rendering quirks with canvas.
+
+The compositing order is:
+
+1. **Background layer** — captured via `domToCanvas`
+2. **User image layer** — Konva stage export
+3. **Overlay layer** — text and image overlays captured via `domToCanvas`
+
+<Tip>
+  For the sharpest gradient backgrounds in exported images, choose a scale of 2× or higher in the Export panel. Vector-like CSS gradients scale perfectly with no quality loss.
+</Tip>

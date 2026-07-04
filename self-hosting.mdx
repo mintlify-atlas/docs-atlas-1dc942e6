@@ -1,0 +1,120 @@
+---
+title: "Self-Hosting Betterflow on Vercel or Docker"
+sidebarTitle: "Self-Hosting"
+description: "Deploy your own Betterflow instance to Vercel or a Docker container, configure environment variables, and go live with a private installation."
+---
+
+Betterflow is a standard Next.js application and can be self-hosted on any platform that supports Node.js. The two officially supported deployment targets are **Vercel** (the recommended path for most teams) and **Docker** for containerized or on-premise environments. This page covers both options and lists every environment variable you will need to configure.
+
+## Deploying to Vercel
+
+Vercel is the recommended deployment target for Betterflow. Because the project is built on Next.js, Vercel handles all framework-specific optimisations — including serverless API routes, edge caching, and automatic preview deployments — with no additional configuration.
+
+<Steps>
+  <Step title="Connect your repository">
+    Go to [vercel.com](https://vercel.com), create a new project, and import your fork or copy of the Betterflow repository. Vercel will detect the Next.js framework automatically.
+  </Step>
+
+  <Step title="Configure build settings">
+    Vercel auto-detects the correct values for a Next.js project, but verify the following in the project settings before your first deploy:
+
+    | Setting | Value |
+    |---|---|
+    | **Framework Preset** | Next.js |
+    | **Build Command** | `pnpm run build` |
+    | **Output Directory** | `.next` |
+    | **Install Command** | `pnpm install` |
+
+    <Note>
+      Vercel's default install command is `npm install`. You must override it to `pnpm install` because the project's `preinstall` hook (`only-allow pnpm`) will fail the build if any other package manager is used.
+    </Note>
+  </Step>
+
+  <Step title="Set environment variables">
+    In your Vercel project dashboard, navigate to **Settings → Environment Variables** and add the variables listed in the [Environment Variables](#environment-variables) table below. At minimum, set `NEXT_PUBLIC_SITE_URL` to your production domain.
+
+    To enable hosted background images, add all of the Cloudflare R2 variables as well. Other variables are optional and can be added later.
+  </Step>
+
+  <Step title="Deploy">
+    Trigger your first deployment by clicking **Deploy** in the Vercel dashboard, or push a commit to your `main` branch. Vercel will run `pnpm run build` (which includes `drizzle-kit generate` before the Next.js build) and publish the resulting `.next` output.
+
+    Subsequent pushes to `main` will redeploy automatically.
+  </Step>
+</Steps>
+
+## Deploying with Docker
+
+Betterflow supports containerised deployment for teams that need on-premise hosting, custom infrastructure, or full control over the runtime environment.
+
+Build the Docker image from the repository root:
+
+```bash
+docker build -t betterflow .
+```
+
+Run the container, forwarding port 3000 and passing your environment variables:
+
+```bash
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_SITE_URL=https://your-domain.com \
+  -e NEXT_PUBLIC_R2_PUBLIC_URL=https://your-r2-bucket-url \
+  -e R2_ACCESS_KEY_ID=your_access_key \
+  -e R2_SECRET_ACCESS_KEY=your_secret_key \
+  -e R2_BUCKET_NAME=your_bucket_name \
+  -e CLOUDFLARE_ACCOUNT_ID=your_account_id \
+  -e R2_API_TOKEN=your_api_token \
+  betterflow
+```
+
+Alternatively, use an `.env` file with Docker's `--env-file` flag:
+
+```bash
+docker run -p 3000:3000 --env-file .env betterflow
+```
+
+<Tip>
+  For production Docker deployments, build the production bundle first with `pnpm run build` and start the server with `pnpm start` (which runs `next start`) rather than using the dev server.
+</Tip>
+
+## Environment Variables
+
+The table below covers every variable from `.env.example`. Copy `.env.example` to `.env` (or enter these directly into your Vercel dashboard) and fill in the values for your deployment.
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | **Required** | The canonical public URL of your deployment, e.g. `https://your-domain.com`. Used in SEO metadata. |
+| `CLOUDFLARE_ACCOUNT_ID` | Required for backgrounds | Your Cloudflare account ID. |
+| `R2_ACCOUNT_ID` | Required for backgrounds | Your R2-specific account ID. |
+| `R2_ACCESS_KEY_ID` | Required for backgrounds | Access key for the R2 API. |
+| `R2_SECRET_ACCESS_KEY` | Required for backgrounds | Secret key for the R2 API. |
+| `R2_BUCKET_NAME` | Required for backgrounds | Name of the R2 bucket that stores background images and uploaded assets. |
+| `R2_API_TOKEN` | Required for backgrounds | R2 API token used by server-side routes. |
+| `NEXT_PUBLIC_R2_PUBLIC_URL` | Required for backgrounds | Public base URL of your R2 bucket, e.g. `https://pub-xxxx.r2.dev`. |
+| `NEXT_PUBLIC_R2_CUSTOM_DOMAIN` | Optional | Custom domain placed in front of R2 for asset serving. |
+| `NEXT_PUBLIC_CDN_URL` | Optional | CDN base URL for serving R2 assets through a caching layer. |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Optional | Firebase project API key. |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Optional | Firebase Auth domain. |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Optional | Firebase project ID. |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Optional | Firebase Storage bucket. |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Optional | Firebase messaging sender ID. |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Optional | Firebase app ID. |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog analytics API key for usage tracking. |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Optional | PostHog ingest host. Defaults to `https://us.i.posthog.com`. |
+| `GOOGLE_SITE_VERIFICATION` | Optional | Google Search Console meta-tag verification token. |
+| `CLEANUP_SECRET` | Optional | Bearer token that protects the `/api/cleanup-cache` route. |
+
+<Note>
+  The R2 variables are only needed if you want to serve hosted background images from a Cloudflare R2 bucket. All core editor functionality — including device frames, 3D transforms, animations, and video export — works without any R2 configuration.
+</Note>
+
+## What's Next
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/configuration/environment-variables">
+    Full reference for every configuration option.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run Betterflow locally for development.
+  </Card>
+</CardGroup>

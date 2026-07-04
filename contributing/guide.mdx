@@ -1,0 +1,348 @@
+---
+title: "Contributing to Betterflow"
+sidebarTitle: "Guide"
+description: "Everything you need to set up your local environment, follow coding standards, tackle common tasks, and submit high-quality pull requests to Betterflow."
+---
+
+Welcome to the Betterflow contributor guide. Whether you're fixing a bug, adding a feature, or improving the docs, this page covers everything from local setup through coding conventions and pull-request etiquette so you can contribute with confidence.
+
+## Prerequisites
+
+Before cloning the repo, make sure you have the following installed and ready:
+
+<CardGroup cols={2}>
+  <Card title="Node.js 18+" icon="node">
+    Required by Next.js 16 and the pnpm tool-chain. Check with `node -v`.
+  </Card>
+  <Card title="pnpm" icon="box">
+    The only supported package manager. A `preinstall` hook blocks npm and Yarn.
+  </Card>
+  <Card title="Git" icon="code-branch">
+    Needed to clone, branch, and push your changes to GitHub.
+  </Card>
+  <Card title="TypeScript / React / Next.js" icon="brackets-curly">
+    Working knowledge of all three is expected — the codebase uses all of them heavily.
+  </Card>
+</CardGroup>
+
+## Local Setup
+
+<Warning>
+  **pnpm is required.** The `package.json` contains a `preinstall` hook powered by `only-allow pnpm` that will immediately abort any `npm install` or `yarn` invocation. Install pnpm globally with `npm i -g pnpm` before cloning.
+</Warning>
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/konlyzx/betterflow.git
+    cd betterflow
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Copy the environment file">
+    Copy the example env file and fill in any optional services you need. Core editing features work without any configuration — only R2 asset storage and the screenshot API require values.
+
+    ```bash
+    cp .env.example .env.local
+    ```
+
+    ```bash
+    # Site
+    NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+    # Cloudflare R2 (asset storage — optional for local dev)
+    R2_ACCESS_KEY_ID=your-access-key
+    R2_SECRET_ACCESS_KEY=your-secret-key
+    R2_BUCKET_NAME=your-bucket
+    R2_ACCOUNT_ID=your-account-id
+
+    # Screenshot API (defaults to free Screen-Shot.xyz)
+    SCREENSHOT_API_URL=https://api.screen-shot.xyz
+    ```
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    pnpm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000). The editor should load immediately with no images or assets required.
+  </Step>
+</Steps>
+
+## Coding Standards
+
+Consistent code style keeps the codebase readable and reviews fast. The sections below are enforced by ESLint — run `pnpm run lint` at any time to check.
+
+### TypeScript
+
+- Use TypeScript for **all** new code.
+- Avoid `any`. Use `unknown` if the type is genuinely not known at compile time.
+- Be explicit about function parameter and return types, even when inference would work.
+
+```typescript
+// ✅ Correct
+export function lerp(start: number, end: number, progress: number): number {
+  return start + (end - start) * progress;
+}
+
+// ❌ Avoid
+export function lerp(start, end, progress) {
+  return start + (end - start) * progress;
+}
+```
+
+### React
+
+- Use **functional components with hooks** — no class components.
+- Prefer **named exports** over default exports for easier refactoring.
+- Add the `'use client'` directive to every component that uses browser APIs, event handlers, or Zustand.
+- Keep components **single-purpose** — split large components into focused sub-components.
+
+```typescript
+// ✅ Correct
+'use client';
+
+export function ShadowControls(): React.JSX.Element {
+  const { imageShadow, setImageShadow } = useImageStore();
+  // ...
+}
+```
+
+### Styling
+
+<Note>
+  Always use **CSS theme variable** utility classes. Never reach for literal color values.
+</Note>
+
+| Use this ✅ | Avoid this ❌ |
+|---|---|
+| `bg-background` | `bg-white` / `bg-black` |
+| `text-foreground` | `text-neutral-900` |
+| `bg-card` | `bg-gray-100` |
+| `border-border` | `border-gray-200` |
+| `bg-primary` | `#4168d0` (hex) |
+
+All available tokens are defined in `app/globals.css`. Adding a new token there makes it available to every component automatically.
+
+### File Naming
+
+| File type | Convention | Example |
+|---|---|---|
+| React component | `PascalCase.tsx` | `ShadowControls.tsx` |
+| Utility / helper | `kebab-case.ts` | `export-utils.ts` |
+| TypeScript interface | PascalCase name | `interface CanvasObject` |
+
+### Linting
+
+```bash
+pnpm run lint        # Check for errors
+pnpm run lint:fix    # Auto-fix fixable issues
+```
+
+Always run `pnpm run lint` before committing. The CI pipeline will fail on lint errors.
+
+## Common Tasks
+
+The sections below walk through the most frequent contribution patterns with concrete file paths.
+
+<Accordion title="Adding a new control panel">
+  Control panels live in `components/controls/`. Each panel is a focused React component that reads and writes a single slice of Zustand state.
+
+  1. Create your component file:
+
+  ```bash
+  components/controls/MyNewControls.tsx
+  ```
+
+  2. Wire it to the relevant Zustand store from `lib/store/index.ts`:
+
+  ```typescript
+  'use client';
+
+  import { useImageStore } from '@/lib/store';
+
+  export function MyNewControls(): React.JSX.Element {
+    const { someValue, setSomeValue } = useImageStore();
+
+    return (
+      <div className="flex flex-col gap-2">
+        {/* your UI */}
+      </div>
+    );
+  }
+  ```
+
+  3. Add it to the appropriate editor panel (`components/editor/editor-left-panel.tsx` or `components/editor/unified-right-panel.tsx`).
+
+  4. Update TypeScript types in `types/` if your control introduces new state shape.
+</Accordion>
+
+<Accordion title="Adding a browser mockup style">
+  Browser mockup frames share a single `BrowserToolbar` component used by both the 2D HTML layer and the 3D overlay.
+
+  1. **Add the toolbar variant** inside `components/canvas/frames/BrowserToolbar.tsx`.
+  2. The toolbar is consumed by both `HTMLMainImageLayer` (2D) and `Frame3DOverlay` (3D) — no extra wiring needed for rendering.
+  3. **Register the frame type** in the `FrameConfig` union inside `Frame3DOverlay.tsx`:
+
+  ```typescript
+  type: 'arc-light' | 'arc-dark' | 'macos-light' | 'my-new-style' | ...;
+  ```
+
+  4. **Add header height** to `canvas-dimensions.ts` so padding calculations are correct for the new frame:
+
+  ```typescript
+  export const FRAME_HEADER_HEIGHTS: Record<FrameType, number> = {
+    'my-new-style': 40,
+    // ...
+  };
+  ```
+
+  5. Add a **preview card** in `components/editor/sections/BrowserMockupSection.tsx` so users can click to apply it.
+</Accordion>
+
+<Accordion title="Adding a new background">
+  All background definitions live in `lib/constants/backgrounds.ts`. The `BackgroundConfig` type accepts `'gradient'`, `'solid'`, or `'image'` as the `type` field.
+
+  ```typescript
+  // lib/constants/backgrounds.ts
+  export interface BackgroundConfig {
+    type: BackgroundType;           // 'gradient' | 'solid' | 'image'
+    value: GradientKey | SolidColorKey | string;
+    opacity?: number;
+  }
+  ```
+
+  To add a new gradient, add its key to `lib/constants/gradient-colors.ts` and the CSS value will be picked up automatically by `getBackgroundStyle()`. If you need a new `BackgroundType`, update the `BackgroundConfig` type and the `getBackgroundStyle` / `getBackgroundCSS` switch statements.
+</Accordion>
+
+<Accordion title="Adding an animation preset">
+  Presets are defined in `lib/animation/presets.ts`. Each preset describes a named animation with one or more `AnimationTrack` objects that each hold an array of `Keyframe` values.
+
+  ```typescript
+  // lib/animation/presets.ts
+  export const ANIMATION_PRESETS: AnimationPreset[] = [
+    {
+      id: 'my-new-preset',
+      name: 'My New Preset',
+      description: 'Short description shown in the gallery',
+      category: 'reveal',   // reveal | flip | perspective | orbit | depth
+      duration: 1200,       // milliseconds
+      tracks: [
+        createTrack('Transform', 'transform', [
+          createKeyframe(0,    { rotateX: -20, scale: 0.95 }, 'ease-out'),
+          createKeyframe(1200, { rotateX: 0,   scale: 1.0  }, 'ease-out'),
+        ]),
+      ],
+    },
+  ];
+  ```
+
+  When the user applies a preset to the timeline, **always use `clonePresetTracks()`** — this generates fresh unique IDs so multiple clips of the same preset can coexist:
+
+  ```typescript
+  import { clonePresetTracks } from '@/lib/animation/presets';
+
+  const tracks = clonePresetTracks(preset, { startTime: clip.startTime, clipId: clip.id });
+  ```
+</Accordion>
+
+<Accordion title="Modifying export logic">
+  The export pipeline is split across several focused files in `lib/export/`:
+
+  | File | Responsibility |
+  |---|---|
+  | `export-service.ts` | Image export — composites background, Konva stage, and overlays |
+  | `export-slideshow-video.ts` | Video export orchestrator — iterates frames and calls encoders |
+  | `ffmpeg-encoder.ts` | FFmpeg WASM encoder for H.264 and GIF |
+  | `webcodecs-encoder.ts` | Hardware-accelerated H.264 via WebCodecs API + mp4-muxer |
+  | `video-encoder.ts` | MediaRecorder wrapper for native WebM |
+  | `export-utils.ts` | Shared helpers (noise texture, OKLCH conversion, etc.) |
+
+  To modify image quality or add a new export format, start in `export-service.ts`. To change video encoder behaviour or add a new encoder, edit the relevant encoder file and update the selection logic in `export-slideshow-video.ts`.
+</Accordion>
+
+## Submitting Changes
+
+### Branch naming
+
+```bash
+git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/short-bug-description
+```
+
+### Conventional commits
+
+Betterflow uses [Conventional Commits](https://www.conventionalcommits.org/). Your commit message should follow this format:
+
+```text
+<type>(<scope>): <short summary>
+```
+
+| Type | When to use |
+|---|---|
+| `feat` | New feature or capability |
+| `fix` | Bug fix |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `docs` | Documentation changes only |
+
+```bash
+# Examples
+feat(export): add watermark toggle option
+fix(canvas): correct image positioning on aspect-ratio change
+refactor(store): simplify EditorStoreSync effects
+docs: update contributing guide setup steps
+```
+
+### Pull request checklist
+
+Before opening a PR, confirm every item below:
+
+<Note>
+  Reviewers will not merge a PR that fails `build` or `lint`. Run both locally first to save round-trips.
+</Note>
+
+- [ ] `pnpm run build` passes with no errors
+- [ ] `pnpm run lint` passes with no warnings
+- [ ] Manually tested in the browser
+- [ ] No `console.error` or unexpected `console.warn` output
+- [ ] Follows the existing code style (see [Coding Standards](#coding-standards))
+- [ ] PR description explains **what** changed, **why**, and **how to test it**
+- [ ] Screenshots or a screen recording attached for any visual changes
+
+### Manual testing checklist
+
+Run through this list before marking your PR ready for review:
+
+- [ ] Image upload — drag & drop and file picker
+- [ ] Background changes — gradient, solid, and image types
+- [ ] Device frames and border controls
+- [ ] 3D perspective transforms
+- [ ] Text and image overlays
+- [ ] Animation presets and timeline playback
+- [ ] Export — PNG, JPG, and at least one video format (MP4 or WebM)
+- [ ] Copy to clipboard
+- [ ] Aspect ratio changes
+- [ ] Responsive layout at narrow viewport widths
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="circle-exclamation" href="https://github.com/konlyzx/betterflow/issues">
+    Report bugs or request features. Include steps to reproduce, expected vs actual behaviour, browser/OS details, and any console errors.
+  </Card>
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/konlyzx/betterflow/discussions">
+    Ask questions, share ideas, or get feedback on a proposed approach before writing code.
+  </Card>
+</CardGroup>
+
+<Tip>
+  By contributing, your work is licensed under the same [Apache 2.0 License](https://github.com/konlyzx/betterflow/blob/main/LICENSE) as the rest of the project.
+</Tip>

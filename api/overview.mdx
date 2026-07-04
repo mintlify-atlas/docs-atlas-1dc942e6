@@ -1,0 +1,55 @@
+---
+title: "Betterflow API Reference Overview"
+sidebarTitle: "Overview"
+description: "Next.js API routes powering the Betterflow Chrome extension and server-side export pipeline. All routes are available at {NEXT_PUBLIC_SITE_URL}/api."
+---
+
+Betterflow exposes a set of Next.js App Router API routes that serve two primary consumers: the **Chrome extension** (which records screen video and sends it to Cloudflare R2) and the **editor's server-side pipeline** (which handles image compression via Sharp and website screenshots via Playwright). All routes live under the `/api` prefix and are deployed as Vercel serverless functions alongside the main application.
+
+## Base URL
+
+```
+{NEXT_PUBLIC_SITE_URL}/api
+```
+
+Set `NEXT_PUBLIC_SITE_URL` to the root of your deployment (e.g. `https://app.betterflow.site`) in your environment variables. See the [Environment Variables](/configuration/environment-variables) guide for the full list of required variables.
+
+## Authentication
+
+Most routes are intentionally open — Betterflow is a self-hosted tool and does not implement user authentication at the API layer. However, two routes interact with Cloudflare R2 storage and will fail silently or return `500` errors if the required server-side environment variables (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `CLOUDFLARE_ACCOUNT_ID`, `R2_API_TOKEN`) are not configured:
+
+- `POST /api/upload-url` — generates presigned R2 upload URLs
+- `POST /api/upload-video` — proxies base64 video data to R2
+
+The `/api/cleanup-cache` route additionally requires a `CLEANUP_SECRET` environment variable and returns `401 Unauthorized` if the secret in the request body does not match.
+
+<Note>
+  When using the hosted version at **betterflow.site** these routes are already configured and require no setup on your part. The same applies if you self-host and configure the environment variables correctly.
+</Note>
+
+## Routes
+
+<CardGroup cols={2}>
+  <Card title="POST /api/upload-url" icon="link" href="/api/upload-url">
+    Generate a short-lived R2 presigned URL so the Chrome extension can upload files directly to your bucket without exposing credentials to the browser.
+  </Card>
+  <Card title="POST /api/upload-video" icon="video" href="/api/upload-video">
+    Accept a base64-encoded video blob from the Chrome extension and upload it server-side to Cloudflare R2 using the Cloudflare REST API.
+  </Card>
+  <Card title="GET /api/image-proxy" icon="image" href="/api/image-proxy">
+    Proxy Twitter/X media images through the same origin to allow safe canvas operations (`getImageData`, `toBlob`) that would otherwise be blocked by CORS.
+  </Card>
+  <Card title="POST /api/export" icon="download" href="/api/export">
+    Compress an exported canvas image server-side using Sharp — MozJPEG, libwebp, and optimised PNG — producing smaller files than the browser canvas API alone.
+  </Card>
+  <Card title="POST /api/screenshot" icon="camera" href="/api/screenshot">
+    Capture a full-viewport screenshot of any public website using Playwright and Chromium, with caching and rate limiting built in.
+  </Card>
+</CardGroup>
+
+### Additional Routes
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/cleanup-cache` | `POST` | Clears old screenshot entries from the R2 screenshot cache. Requires a `secret` field in the request body matching `CLEANUP_SECRET`. Returns `{ success: true, message: "Cache cleanup completed" }` on success. |
+| `/api/tweet/[id]` | `GET` | Fetches tweet data for the given tweet ID using the `react-tweet` library. Returns `{ data: Tweet }` on success or `{ data: null, error: "..." }` on failure. Used internally by the editor to embed tweet previews. |

@@ -1,0 +1,65 @@
+---
+title: "Betterflow: Browser-Based Screenshot Editor"
+sidebarTitle: "Introduction"
+description: "Betterflow is a free, browser-based screenshot editor with backgrounds, 3D effects, animations, and video export — no signup or watermarks."
+---
+
+Betterflow is a free, fully browser-based screenshot editor that lets you transform plain screenshots into polished, professional visuals — without installing anything, creating an account, or dealing with watermarks. Whether you need a striking product shot, an animated demo, or a multi-slide presentation, Betterflow handles it all directly in your browser using a powerful canvas engine built on Next.js, React 19, and Konva.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="100+ Backgrounds" icon="image">
+    Choose from gradients, solid colors, images, blur, and noise overlays to set the perfect scene for your screenshot.
+  </Card>
+  <Card title="Device Frames" icon="mobile">
+    Wrap your screenshot in realistic Safari or Chrome mockups (light/dark), Arc browser frames, Polaroid, glass, outline, and border styles.
+  </Card>
+  <Card title="3D Transforms" icon="cube">
+    Apply 30+ perspective presets with realistic depth to give your screenshots dramatic, eye-catching angles.
+  </Card>
+  <Card title="Animations" icon="play">
+    Choose from 20+ animation presets across five categories — Reveal, Flip, Perspective, Orbit, and Depth — and fine-tune them with a full timeline editor and keyframe controls.
+  </Card>
+  <Card title="Video Export" icon="video">
+    Export your animated designs as MP4, WebM, or GIF using hardware-accelerated encoding via WebCodecs, with FFmpeg WASM as a fallback for broader browser support.
+  </Card>
+  <Card title="Chrome Extension" icon="puzzle-piece">
+    Record your screen directly from the browser with one click. Recordings upload automatically to the editor so you can jump straight into editing.
+  </Card>
+  <Card title="Multi-Slide Support" icon="layer-group">
+    Build slideshow presentations by combining multiple images into a single animated sequence and exporting the whole thing as a video.
+  </Card>
+  <Card title="IndexedDB Auto-Save" icon="floppy-disk">
+    Your work is automatically saved to your browser's local IndexedDB storage. Drafts and exports persist across sessions — no cloud account needed.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+Betterflow follows a straightforward three-step workflow:
+
+<Steps>
+  <Step title="Upload your screenshot">
+    Drag and drop an image onto the canvas, use the file picker, or capture a website screenshot directly from the editor. The Chrome extension also lets you record your screen and send the recording straight to the editor.
+  </Step>
+  <Step title="Style and animate">
+    Pick a background, add device frames or borders, apply 3D perspective transforms, drop in text or image overlays, and optionally attach an animation preset from the timeline panel. Every control updates the canvas in real time.
+  </Step>
+  <Step title="Export">
+    Download a high-resolution PNG or JPG (up to 5× scale) or export your animation as MP4, WebM, or GIF — all processed entirely in the browser without any server round-trips.
+  </Step>
+</Steps>
+
+## Free, Open Source, No Watermarks
+
+Betterflow is released under the **Apache License 2.0** and is completely free to use. There is no account to create, no subscription to manage, and no watermark added to your exports. The live version is available at [betterflow.site](https://betterflow.site), and the full source code is on GitHub.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run Betterflow locally in under five minutes.
+  </Card>
+  <Card title="Self-Hosting" icon="server" href="/self-hosting">
+    Deploy Betterflow on Vercel or Docker for your team.
+  </Card>
+</CardGroup>

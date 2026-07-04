@@ -1,0 +1,106 @@
+{
+  "projectType": "saas",
+  "projectName": "Betterflow",
+  "projectDescription": "A free, browser-based screenshot editor with beautiful backgrounds, device frames, 3D effects, animations, and video export — no signup, no watermarks.",
+  "theme": "willow",
+  "primaryColor": "#a444fc",
+  "lightColor": "#fc5c62",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "self-hosting"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/backgrounds",
+              "features/device-frames",
+              "features/3d-transforms",
+              "features/text-image-overlays",
+              "features/animations",
+              "features/export"
+            ]
+          },
+          {
+            "group": "Chrome Extension",
+            "pages": [
+              "extension/overview",
+              "extension/usage"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/environment-variables",
+              "configuration/storage",
+              "configuration/deployment"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/guide",
+              "contributing/architecture"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Routes",
+            "pages": [
+              "api/overview",
+              "api/upload-url",
+              "api/upload-video",
+              "api/image-proxy",
+              "api/export",
+              "api/screenshot"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "100+ backgrounds — gradients, solid colors, mesh gradients, and images",
+    "Browser mockups — Safari & Chrome (light/dark) with realistic toolbars",
+    "Device frames — Arc browser, Polaroid, glass, outline, border styles",
+    "3D transforms — 30+ perspective presets with realistic depth",
+    "Draw & Markup — arrows, shapes, blur regions, text overlays",
+    "Tweet & code snippet import",
+    "20+ animation presets with timeline editor and keyframe control",
+    "Video export — MP4, WebM, GIF with hardware-accelerated encoding",
+    "High-resolution PNG/JPG export up to 5x scale, fully in-browser",
+    "Chrome Extension for one-click screen recording",
+    "Multi-slide support for slideshow presentations",
+    "IndexedDB auto-save drafts — no data loss, works offline"
+  ],
+  "publicApiSurface": [
+    "POST /api/upload-url — generate presigned R2 upload URLs",
+    "POST /api/upload-video — direct video upload from Chrome extension",
+    "GET /api/image-proxy — proxy R2 images to avoid CORS",
+    "POST /api/export — server-side image export with FFmpeg",
+    "GET /api/screenshot — capture website screenshot",
+    "POST /api/cleanup-cache — clear cached images from R2",
+    "GET /api/tweet/[id] — fetch tweet data for snippet import",
+    "useImageStore — main design state (Zustand)",
+    "useEditorStore — canvas rendering state (Zustand)",
+    "getInterpolatedProperties() — keyframe interpolation at a given time",
+    "getClipInterpolatedProperties() — multi-clip aware interpolation",
+    "clonePresetTracks() — apply animation preset with unique IDs",
+    "ANIMATION_PRESETS — 20+ presets across reveal, flip, perspective, orbit, depth",
+    "getBackgroundStyle(config: BackgroundConfig) — compute background CSS value",
+    "getBackgroundCSS(config: BackgroundConfig) — compute React.CSSProperties for background"
+  ]
+}
